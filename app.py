@@ -48,7 +48,7 @@ elif opcion == "Productos":
     st.header("📦 Catálogo de Artículos")
     with st.form("form_prod", clear_on_submit=True):
         nombre = st.text_input("Nombre Artículo")
-        u$s = st.number_input("Precio U$S", min_value=0.0)
+        precio_uss = st.number_input("Precio U$S", min_value=0.0)
         if st.form_submit_button("Agregar Artículo"):
             aid = f"Art. - {len(st.session_state.db_productos) + 1}"
             st.session_state.db_productos.append({"N°": aid, "Nombre": nombre, "Precio": u$s})
