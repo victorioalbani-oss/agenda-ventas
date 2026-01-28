@@ -73,7 +73,6 @@ elif opcion == "Contactos":
                     "T1": t1, "T2": t2, "T3": t3, "M1": m1, "M2": m2, "M3": m3, "Extra": extra
                 })
                 st.success(f"Contacto {cid} guardado y campos limpios.")
-
     with t2:
         st.subheader("📋 Lista de Empresas Registradas")
         if st.session_state.db_contactos:
