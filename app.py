@@ -201,7 +201,29 @@ elif opcion == "Órdenes de Compra":
                     st.info(f"💰 **Facturación total en este filtro:** U$S {monto_total:,.2f}")
             else:
                 st.info("No hay órdenes de compra registradas todavía.")
-
+# --- SECCIÓN DE EXPORTACIÓN DE OC ---
+                st.write("---")
+                if not df_filtrado_oc.empty:
+                    col_oc_pdf1, col_oc_pdf2 = st.columns(2)
+                    
+                    # Opción 1: Excel (CSV)
+                    csv_oc = df_filtrado_oc.to_csv(index=False).encode('utf-8')
+                    col_oc_pdf1.download_button(
+                        label=f"📥 Descargar Excel de {empresa_buscada}",
+                        data=csv_oc,
+                        file_name=f"OC_{empresa_buscada}_{datetime.now().date()}.csv",
+                        mime="text/csv",
+                    )
+                    
+                    # Opción 2: Preparar para PDF (Impresión)
+                    if col_oc_pdf2.button("📄 Generar Vista para PDF (OC)"):
+                        st.success("Vista de reporte lista. Usá 'Imprimir' (Ctrl+P) y seleccioná 'Guardar como PDF'.")
+                        # Mostramos un encabezado profesional para el reporte
+                        st.markdown(f"### Reporte de Órdenes de Compra - {empresa_buscada}")
+                        st.markdown(f"**Periodo:** {rango_oc if len(rango_oc)==2 else 'Todos los registros'}")
+                        st.table(df_filtrado_oc)
+                        st.markdown(f"**Monto Total Filtrado: U$S {df_filtrado_oc['Monto'].sum():,.2f}**")
+                        
 # --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
