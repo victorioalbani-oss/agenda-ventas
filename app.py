@@ -180,18 +180,15 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes de compra registradas todavía.")
 
-# --- MÓDULO BITÁCORA (SIMPLIFICADO) ---
+# --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
-    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Filtros"])
+    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
     
     with b1:
         with st.form("form_bit", clear_on_submit=True):
             emp_b = st.selectbox("Asociar a Empresa", [c['Empresa'] for c in st.session_state.db_contactos] if st.session_state.db_contactos else ["Sin contactos"])
-            
-            # Solo dejamos la fecha en la que se realizó la actividad
             fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-            
             cont = st.text_area("Detalle de la actividad")
             
             if st.form_submit_button("Cargar Bitácora"):
@@ -206,12 +203,6 @@ elif opcion == "Bitácora":
         st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            
-            # Limpieza de nombres de columnas por si quedaron datos viejos
-            if "Fecha" in df_bit.columns:
-                df_bit = df_bit.rename(columns={"Fecha": "Fecha Realizada"})
-            
-            # Aseguramos formato de fecha
             df_bit["Fecha Realizada"] = pd.to_datetime(df_bit["Fecha Realizada"]).dt.date
             
             c_f1, c_f2 = st.columns(2)
@@ -221,45 +212,45 @@ elif opcion == "Bitácora":
             with c_f2:
                 rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
 
-            # Aplicar Filtros
+            # --- Lógica de Filtros ---
             df_filtrado = df_bit.copy()
-            
             if f_emp != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            
             if len(rango_fechas) == 2:
                 f_inicio, f_fin = rango_fechas
-                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= f_inicio) & 
-                                          (df_filtrado["Fecha Realizada"] <= f_fin)]
+                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= f_inicio) & (df_filtrado["Fecha Realizada"] <= f_fin)]
 
             # Mostramos la tabla filtrada
             st.dataframe(df_filtrado, use_container_width=True)
             
-            # Botones de exportación (opcional, por si querés guardar el reporte)
-            if not df_filtrado.empty:
-                st.write("---")
-                if st.button("📄 Generar Vista para Imprimir"):
-                    st.table(df_filtrado)
+            # --- SECCIÓN DE DESCARGA Y ELIMINACIÓN ---
+            st.write("---")
+            col_acc1, col_acc2 = st.columns(2)
+
+            with col_acc1:
+                st.write("📂 **Exportar Datos Filtrados**")
+                if not df_filtrado.empty:
+                    # El nombre del archivo cambia según la empresa elegida
+                    nombre_archivo = f"bitacora_{f_emp.replace(' ', '_')}.csv"
+                    csv = df_filtrado.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label=f"📥 Descargar Bitácora de {f_emp}",
+                        data=csv,
+                        file_name=nombre_archivo,
+                        mime="text/csv",
+                    )
+                
+            with col_acc2:
+                st.write("⚠️ **Zona de Peligro**")
+                # Opción para eliminar el último registro o limpiar todo
+                if st.button("🗑️ Eliminar último registro cargado"):
+                    if len(st.session_state.db_bitacora) > 0:
+                        st.session_state.db_bitacora.pop()
+                        st.rerun() # Reinicia la app para mostrar los cambios
+                
+                if st.checkbox("Habilitar borrado total"):
+                    if st.button("💥 BORRAR TODA LA BITÁCORA"):
+                        st.session_state.db_bitacora = []
+                        st.rerun()
         else:
             st.info("No hay registros todavía.")
-            
-# --- AGREGAR DESDE AQUÍ PARA DESCARGAR PDF ---
-            st.write("---")
-            if not df_filtrado.empty:
-                col_pdf1, col_pdf2 = st.columns(2)
-                
-                # Botón de Excel (Siempre útil por si el PDF falla)
-                csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
-                col_pdf1.download_button(
-                    "📥 Descargar Excel",
-                    csv_data,
-                    f"bitacora_{f_emp}.csv",
-                    "text/csv"
-                )
-                
-                # Botón para preparar la vista de impresión (PDF)
-                if col_pdf2.button("📄 Generar Vista para PDF"):
-                    st.success("¡Vista preparada! Ahora usá 'Imprimir' en tu navegador y elegí 'Guardar como PDF'.")
-                    # Esto muestra la tabla limpia y sin filtros para que el PDF salga prolijo
-                    st.table(df_filtrado)
-            # --- HASTA AQUÍ ---
