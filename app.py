@@ -208,14 +208,25 @@ elif opcion == "Órdenes de Compra":
                 if not df_f.empty:
                     st.write("### ⬇️ Exportar Reporte")
                     btn_col1, btn_col2 = st.columns(2)
+                    
+                    # Excel (Este siempre funciona directo)
                     csv = df_f.to_csv(index=False).encode('utf-8')
-                    btn_col1.download_button("📥 DESCARGAR EXCEL", csv, f"OC_{emp_busc}.csv", "text/csv", use_container_width=True)
-                    if btn_col2.button("📄 PREPARAR PDF", use_container_width=True):
-                        st.table(df_f)
+                    btn_col1.download_button("📥 EXCEL", csv, f"OC_{emp_busc}.csv", "text/csv", use_container_width=True)
+                    
+                    # PDF (Modo Seguro: Vista de Impresión)
+                    preparar = btn_col2.button("📄 PREPARAR PDF", use_container_width=True)
                 
                 st.write("---")
-                st.dataframe(df_f, use_container_width=True)
-                st.metric("Total Facturado en este filtro", f"U$S {df_f['Monto'].sum():,.2f}")
+                
+                # Si el usuario tocó "Preparar PDF", mostramos una tabla limpia para imprimir
+                if 'preparar' in locals() and preparar:
+                    st.success("✅ REPORTE LISTO. Ahora: 1. Presioná Ctrl+P (o Imprimir en tu celu) | 2. Elegí 'Guardar como PDF'")
+                    st.markdown(f"## Reporte de Órdenes - {emp_busc}")
+                    st.table(df_f) # La tabla estática sale perfecta en PDF
+                else:
+                    # Si no, mostramos la tabla normal interactiva
+                    st.dataframe(df_f, use_container_width=True)
+                    st.metric("Total Facturado", f"U$S {df_f['Monto'].sum():,.2f}")
 
                 # --- ELIMINACIÓN ---
                 st.write("---")
