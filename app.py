@@ -222,35 +222,7 @@ with tab_historial:
                     f_ini, f_fin = rango_oc
                     df_filtrado_oc = df_filtrado_oc[(df_filtrado_oc["Fecha"] >= f_ini) & (df_filtrado_oc["Fecha"] <= f_fin)]
 
-                # --- BOTONES DE DESCARGA RÁPIDA (NUEVA SECCIÓN) ---
-                if not df_filtrado_oc.empty:
-                    st.write("### ⬇️ Exportar Órdenes Filtradas")
-                    c_btn1, c_btn2 = st.columns(2)
-                    
-                    # Botón de Excel (Rápido y Directo)
-                    csv_oc = df_filtrado_oc.to_csv(index=False).encode('utf-8')
-                    c_btn1.download_button(
-                        label=f"📥 EXCEL ({empresa_buscada})",
-                        data=csv_oc,
-                        file_name=f"OC_{empresa_buscada}_{datetime.now().date()}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                    
-                    # Botón de PDF (Abre la vista de impresión)
-                    if c_btn2.button("📄 PREPARAR PDF", use_container_width=True):
-                        st.success("¡Reporte preparado! Usá Imprimir (Ctrl+P) y elegí 'Guardar como PDF'.")
-                        st.markdown(f"### Reporte de OCs - {empresa_buscada}")
-                        st.table(df_filtrado_oc) # Tabla limpia para el PDF
-
-                st.write("---")
-                # Muestra la tabla interactiva y la métrica de facturación
-                st.dataframe(df_filtrado_oc, use_container_width=True)
-                monto_total = df_filtrado_oc["Monto"].sum()
-                st.metric("Facturación Total Filtrada", f"U$S {monto_total:,.2f}")
-            else:
-                st.info("No hay órdenes de compra registradas todavía.")
-                        
+        
 # --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
