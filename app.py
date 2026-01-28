@@ -180,7 +180,7 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes de compra registradas todavía.")
 
-# --- MÓDULO BITÁCORA ---
+# --- MÓDULO BITÁCORA (SIMPLIFICADO) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Filtros"])
@@ -189,21 +189,15 @@ elif opcion == "Bitácora":
         with st.form("form_bit", clear_on_submit=True):
             emp_b = st.selectbox("Asociar a Empresa", [c['Empresa'] for c in st.session_state.db_contactos] if st.session_state.db_contactos else ["Sin contactos"])
             
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-            with col_b2:
-                fecha_recordar = st.date_input("Fecha a Recordar", datetime.now())
+            # Solo dejamos la fecha en la que se realizó la actividad
+            fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
             
-            horas = st.number_input("Horas dedicadas", min_value=0.0, step=0.5)
             cont = st.text_area("Detalle de la actividad")
             
             if st.form_submit_button("Cargar Bitácora"):
                 st.session_state.db_bitacora.append({
                     "Fecha Realizada": fecha_realizada,
-                    "Fecha Recordar": fecha_recordar,
                     "Empresa": emp_b,
-                    "Horas": horas,
                     "Detalle": cont
                 })
                 st.success("Registro guardado exitosamente.")
@@ -213,12 +207,11 @@ elif opcion == "Bitácora":
         if st.session_state.db_bitacora:
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             
-            # --- SOLUCIÓN AL ERROR ---
-            # Si hay datos viejos donde la columna se llamaba "Fecha", la renombramos a "Fecha Realizada"
+            # Limpieza de nombres de columnas por si quedaron datos viejos
             if "Fecha" in df_bit.columns:
                 df_bit = df_bit.rename(columns={"Fecha": "Fecha Realizada"})
             
-            # Aseguramos que la columna sea de tipo fecha para que el filtro funcione
+            # Aseguramos formato de fecha
             df_bit["Fecha Realizada"] = pd.to_datetime(df_bit["Fecha Realizada"]).dt.date
             
             c_f1, c_f2 = st.columns(2)
@@ -226,7 +219,6 @@ elif opcion == "Bitácora":
                 empresas_bit = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
                 f_emp = st.selectbox("Filtrar por Empresa", empresas_bit)
             with c_f2:
-                # Filtro de RANGO
                 rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
 
             # Aplicar Filtros
@@ -240,12 +232,17 @@ elif opcion == "Bitácora":
                 df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= f_inicio) & 
                                           (df_filtrado["Fecha Realizada"] <= f_fin)]
 
+            # Mostramos la tabla filtrada
             st.dataframe(df_filtrado, use_container_width=True)
             
-            if "Horas" in df_filtrado.columns:
-                st.info(f"⏱️ Total de horas en este filtro: {df_filtrado['Horas'].sum()}")
+            # Botones de exportación (opcional, por si querés guardar el reporte)
+            if not df_filtrado.empty:
+                st.write("---")
+                if st.button("📄 Generar Vista para Imprimir"):
+                    st.table(df_filtrado)
         else:
             st.info("No hay registros todavía.")
+            
 # --- AGREGAR DESDE AQUÍ PARA DESCARGAR PDF ---
             st.write("---")
             if not df_filtrado.empty:
