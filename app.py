@@ -246,3 +246,23 @@ elif opcion == "Bitácora":
                 st.info(f"⏱️ Total de horas en este filtro: {df_filtrado['Horas'].sum()}")
         else:
             st.info("No hay registros todavía.")
+# --- AGREGAR DESDE AQUÍ PARA DESCARGAR PDF ---
+            st.write("---")
+            if not df_filtrado.empty:
+                col_pdf1, col_pdf2 = st.columns(2)
+                
+                # Botón de Excel (Siempre útil por si el PDF falla)
+                csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
+                col_pdf1.download_button(
+                    "📥 Descargar Excel",
+                    csv_data,
+                    f"bitacora_{f_emp}.csv",
+                    "text/csv"
+                )
+                
+                # Botón para preparar la vista de impresión (PDF)
+                if col_pdf2.button("📄 Generar Vista para PDF"):
+                    st.success("¡Vista preparada! Ahora usá 'Imprimir' en tu navegador y elegí 'Guardar como PDF'.")
+                    # Esto muestra la tabla limpia y sin filtros para que el PDF salga prolijo
+                    st.table(df_filtrado)
+            # --- HASTA AQUÍ ---
