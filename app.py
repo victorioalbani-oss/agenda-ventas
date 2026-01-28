@@ -61,8 +61,8 @@ elif opcion == "Contactos":
                 maps = st.text_input("Dirección Google Maps")
             with col2:
                 web = st.text_input("Página Web")
-                t1, t2, t3 = st.text_input("Teléfono 1"), st.text_input("Teléfono 2"), st.text_input("Teléfono 3")
-                m1, m2, m3 = st.text_input("Mail 1"), st.text_input("Mail 2"), st.text_input("Mail 3")
+                tel1, tel2, tel3 = st.text_input("Teléfono 1"), st.text_input("Teléfono 2"), st.text_input("Teléfono 3")
+                mail1, mail2, mail3 = st.text_input("Mail 1"), st.text_input("Mail 2"), st.text_input("Mail 3")
                 extra = st.text_area("Dato Extra")
             
             if st.form_submit_button("Guardar Contacto"):
@@ -70,9 +70,10 @@ elif opcion == "Contactos":
                 st.session_state.db_contactos.append({
                     "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
                     "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": t1, "T2": t2, "T3": t3, "M1": m1, "M2": m2, "M3": m3, "Extra": extra
+                    "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
                 })
                 st.success(f"Contacto {cid} guardado y campos limpios.")
+
     with t2:
         st.subheader("📋 Lista de Empresas Registradas")
         if st.session_state.db_contactos:
@@ -92,7 +93,8 @@ elif opcion == "Contactos":
             st.write(seleccionado)
         else:
             st.write("Cargá una empresa para habilitar la búsqueda.")
-            
+
+
 # --- MÓDULO ÓRDENES DE COMPRA (DINÁMICO) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Nueva Orden de Compra")
