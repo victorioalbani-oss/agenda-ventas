@@ -116,11 +116,10 @@ elif opcion == "Contactos":
         else:
             st.write("Cargá una empresa para habilitar la búsqueda.")
 
-# --- MÓDULO ÓRDENES DE COMPRA (DINÁMICO) ---
+# --- MÓDULO ÓRDENES DE COMPRA (DINÁMICO CON RANGO DE FECHAS) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
     
-    # Creamos dos pestañas: una para cargar y otra para ver el historial
     tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Búsqueda"])
 
     if not st.session_state.db_contactos:
@@ -153,30 +152,53 @@ elif opcion == "Órdenes de Compra":
                 df_items = pd.DataFrame(st.session_state.db_items_oc_actual)
                 st.table(df_items)
                 total_usd = df_items["Subtotal"].sum()
-                st.metric("Total OC", f"U$S {total_usd}")
+                st.metric("Total OC", f"U$S {total_usd:,.2f}")
                 
                 if st.button("💾 GUARDAR ORDEN COMPLETA"):
                     oc_id = f"OC - {len(st.session_state.db_oc) + 1}"
                     st.session_state.db_oc.append({
-                        "ID": oc_id, "Empresa": emp_oc, "Monto": total_usd, 
-                        "Fecha": str(fecha_oc), "Estado": "Pendiente", "Referencia": nombre_oc
+                        "ID": oc_id, 
+                        "Empresa": emp_oc, 
+                        "Monto": total_usd, 
+                        "Fecha": fecha_oc, # Guardamos como objeto date
+                        "Estado": "Pendiente", 
+                        "Referencia": nombre_oc
                     })
                     st.session_state.db_items_oc_actual = []
                     st.success(f"Orden {oc_id} guardada.")
 
         with tab_historial:
-            st.subheader("🔎 Buscar por Empresa")
+            st.subheader("🔎 Filtros de Historial")
             if st.session_state.db_oc:
-                # Sacamos la lista de empresas que tienen OCs
-                empresas_con_oc = sorted(list(set([o['Empresa'] for o in st.session_state.db_oc])))
-                empresa_buscada = st.selectbox("Seleccionar Empresa para filtrar historial", ["Todas"] + empresas_con_oc)
-                
                 df_historial = pd.DataFrame(st.session_state.db_oc)
                 
-                if empresa_buscada != "Todas":
-                    df_historial = df_historial[df_historial['Empresa'] == empresa_buscada]
+                # Aseguramos que la columna Fecha sea comparable
+                df_historial["Fecha"] = pd.to_datetime(df_historial["Fecha"]).dt.date
                 
-                st.dataframe(df_historial, use_container_width=True)
+                c_f1, c_f2 = st.columns(2)
+                with c_f1:
+                    empresas_con_oc = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
+                    empresa_buscada = st.selectbox("Filtrar por Empresa", empresas_con_oc)
+                with c_f2:
+                    rango_oc = st.date_input("Filtrar por Rango de Fechas", value=[])
+
+                # Aplicar Filtros
+                df_filtrado_oc = df_historial.copy()
+                
+                if empresa_buscada != "Todas":
+                    df_filtrado_oc = df_filtrado_oc[df_filtrado_oc['Empresa'] == empresa_buscada]
+                
+                if len(rango_oc) == 2:
+                    f_ini, f_fin = rango_oc
+                    df_filtrado_oc = df_filtrado_oc[(df_filtrado_oc["Fecha"] >= f_ini) & 
+                                                    (df_filtrado_oc["Fecha"] <= f_fin)]
+                
+                st.dataframe(df_filtrado_oc, use_container_width=True)
+                
+                # Resumen de facturación filtrada
+                if not df_filtrado_oc.empty:
+                    monto_total = df_filtrado_oc["Monto"].sum()
+                    st.info(f"💰 **Facturación total en este filtro:** U$S {monto_total:,.2f}")
             else:
                 st.info("No hay órdenes de compra registradas todavía.")
 
