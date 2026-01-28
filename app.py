@@ -44,96 +44,99 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (CON CATEGORÍAS DINÁMICAS) ---
+# --- MÓDULO CONTACTOS (LISTAS INDEPENDIENTES) ---
 elif opcion == "Contactos":
-    st.header("👥 Gestión de Contactos")
+    st.header("👥 Gestión de Contactos y Seguimiento")
     
-    # Inicializar estados de categorías en el diccionario si no existen
-    for c in st.session_state.db_contactos:
-        if "Categoria" not in c:
-            c["Categoria"] = "Sin Categoría"
+    # Inicializamos las listas en el session_state si no existen
+    if "list_activos" not in st.session_state: st.session_state.list_activos = []
+    if "list_interesados" not in st.session_state: st.session_state.list_interesados = []
+    if "list_visitar" not in st.session_state: st.session_state.list_visitar = []
+    if "list_otros" not in st.session_state: st.session_state.list_otros = []
 
-    t1, t2, t3, t_act, t_int, t_vis, t_otr = st.tabs([
-        "➕ Agregar", "📋 Lista Total", "🔍 Buscar/Editar", 
-        "✅ Activos", "⭐ Interesados", "📍 Por Visitar", "👤 De Otros"
-    ])
+    tabs = st.tabs(["➕ Agregar", "📋 Lista Total", "🔍 Detalle", "✅ Clientes Activos", "⭐ Interesados", "📍 Por Visitar", "👤 De Otro"])
     
-    with t1:
+    # 1. AGREGAR CONTACTO
+    with tabs[0]:
         with st.form("form_contacto", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 empresa = st.text_input("Empresa")
                 actividad = st.text_input("Actividad")
-                pais = st.text_input("País")
-                prov = st.text_input("Provincia")
                 ciudad = st.text_input("Ciudad")
-                maps = st.text_input("Dirección Google Maps")
             with col2:
-                web = st.text_input("Página Web")
-                tel1, tel2 = st.text_input("Teléfono 1"), st.text_input("Teléfono 2")
-                mail1, mail2 = st.text_input("Mail 1"), st.text_input("Mail 2")
-                cat_inicial = st.selectbox("Asignar Categoría Inicial", ["Sin Categoría", "Activo", "Interesado", "Por Visitar", "De Otro"])
+                tel1 = st.text_input("Teléfono 1")
+                mail1 = st.text_input("Mail 1")
                 extra = st.text_area("Dato Extra")
             
             if st.form_submit_button("Guardar Contacto"):
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
                 st.session_state.db_contactos.append({
-                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
-                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, 
-                    "Extra": extra, "Categoria": cat_inicial
+                    "N°": cid, "Empresa": empresa, "Actividad": actividad,
+                    "Ciudad": ciudad, "T1": tel1, "M1": mail1, "Extra": extra
                 })
-                st.success(f"Contacto {empresa} guardado.")
+                st.success(f"Empresa {empresa} guardada.")
 
-    with t2:
+    # 2. LISTA TOTAL
+    with tabs[1]:
         if st.session_state.db_contactos:
-            st.dataframe(pd.DataFrame(st.session_state.db_contactos)[["N°", "Empresa", "Actividad", "Categoria", "T1"]], use_container_width=True)
+            st.dataframe(pd.DataFrame(st.session_state.db_contactos), use_container_width=True)
         else:
             st.info("No hay contactos.")
 
-    with t3:
+    # 3. BUSCADOR Y ASIGNADOR DE ESTADOS
+    with tabs[2]:
         if st.session_state.db_contactos:
             nombres = [c['Empresa'] for c in st.session_state.db_contactos]
-            busqueda = st.selectbox("Seleccioná una empresa para gestionar", nombres)
-            c = next(item for item in st.session_state.db_contactos if item['Empresa'] == busqueda)
+            sel_emp = st.selectbox("Seleccioná una empresa para asignar a una lista:", nombres)
             
-            st.markdown(f"### {c['Empresa']} - {c['Categoria']}")
+            st.write(f"### Gestionar: {sel_emp}")
+            c1, c2, c3, c4 = st.columns(4)
             
-            # BOTÓN PARA CAMBIAR CATEGORÍA
-            nueva_cat = st.selectbox("Cambiar categoría a:", ["Sin Categoría", "Activo", "Interesado", "Por Visitar", "De Otro"], 
-                                     index=["Sin Categoría", "Activo", "Interesado", "Por Visitar", "De Otro"].index(c['Categoria']))
-            if st.button("Actualizar Categoría"):
-                c['Categoria'] = nueva_cat
-                st.success(f"{c['Empresa']} ahora es '{nueva_cat}'")
-                st.rerun()
+            if c1.button("✅ Activo"):
+                if sel_emp not in st.session_state.list_activos:
+                    st.session_state.list_activos.append(sel_emp)
+                    st.toast(f"{sel_emp} movido a Activos")
+            
+            if c2.button("⭐ Interesado"):
+                if sel_emp not in st.session_state.list_interesados:
+                    st.session_state.list_interesados.append(sel_emp)
+                    st.toast(f"{sel_emp} movido a Interesados")
 
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.write(f"🏠 {c['Ciudad']}, {c.get('Provincia', '')} ({c['País']})")
-                if c['Maps']: st.link_button("🌐 Maps", c['Maps'])
-            with col_b:
-                st.write(f"📱 {c['T1']} | 📧 {c['M1']}")
+            if c3.button("📍 Por Visitar"):
+                if sel_emp not in st.session_state.list_visitar:
+                    st.session_state.list_visitar.append(sel_emp)
+                    st.toast(f"{sel_emp} movido a Por Visitar")
+
+            if c4.button("👤 De Otro"):
+                if sel_emp not in st.session_state.list_otros:
+                    st.session_state.list_otros.append(sel_emp)
+                    st.toast(f"{sel_emp} movido a De Otro")
         else:
-            st.write("Cargá una empresa primero.")
+            st.warning("Cargá un contacto primero.")
 
-    # --- LÓGICA DE PESTAÑAS POR ESTADO ---
-    def render_categoria(nombre_cat, color):
-        contactos_cat = [c for c in st.session_state.db_contactos if c.get("Categoria") == nombre_cat]
-        if contactos_cat:
-            for con in contactos_cat:
-                with st.expander(f"🏢 {con['Empresa']}"):
-                    st.write(f"**Actividad:** {con['Actividad']} | **Tel:** {con['T1']}")
-                    if st.button(f"❌ Quitar de {nombre_cat}", key=f"del_{nombre_cat}_{con['Empresa']}"):
-                        con["Categoria"] = "Sin Categoría"
+    # --- LÓGICA DE LAS PESTAÑAS DE ESTADO ---
+    def render_lista_seguimiento(titulo, lista_key):
+        st.subheader(titulo)
+        lista_actual = st.session_state[lista_key]
+        if lista_actual:
+            for emp_nombre in lista_actual:
+                with st.expander(f"🏢 {emp_nombre}"):
+                    # Buscamos los datos completos de la empresa para mostrar algo de info
+                    datos = next((item for item in st.session_state.db_contactos if item['Empresa'] == emp_nombre), None)
+                    if datos:
+                        st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
+                    
+                    if st.button(f"❌ Quitar de {titulo}", key=f"btn_{lista_key}_{emp_nombre}"):
+                        st.session_state[lista_key].remove(emp_nombre)
                         st.rerun()
         else:
-            st.info(f"No hay empresas marcadas como '{nombre_cat}'.")
+            st.info("Esta lista está vacía.")
 
-    with t_act: render_categoria("Activo", "green")
-    with t_int: render_categoria("Interesado", "blue")
-    with t_vis: render_categoria("Por Visitar", "orange")
-    with t_otr: render_categoria("De Otro", "gray")
-
+    with tabs[3]: render_lista_seguimiento("Clientes Activos", "list_activos")
+    with tabs[4]: render_lista_seguimiento("Clientes Interesados", "list_interesados")
+    with tabs[5]: render_lista_seguimiento("Clientes por Visitar", "list_visitar")
+    with tabs[6]: render_lista_seguimiento("Clientes de Otro", "list_otros")
 # --- MÓDULO ÓRDENES DE COMPRA (FINAL: MULTI-ARTÍCULO + PDF + ELIMINAR) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
