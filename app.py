@@ -206,14 +206,19 @@ elif opcion == "Bitácora":
                     "Horas": horas,
                     "Detalle": cont
                 })
-                st.success("Registro guardado.")
+                st.success("Registro guardado exitosamente.")
 
     with b2:
         st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             
-            # Aseguramos que las columnas de fecha sean tipo datetime para comparar
+            # --- SOLUCIÓN AL ERROR ---
+            # Si hay datos viejos donde la columna se llamaba "Fecha", la renombramos a "Fecha Realizada"
+            if "Fecha" in df_bit.columns:
+                df_bit = df_bit.rename(columns={"Fecha": "Fecha Realizada"})
+            
+            # Aseguramos que la columna sea de tipo fecha para que el filtro funcione
             df_bit["Fecha Realizada"] = pd.to_datetime(df_bit["Fecha Realizada"]).dt.date
             
             c_f1, c_f2 = st.columns(2)
@@ -221,26 +226,23 @@ elif opcion == "Bitácora":
                 empresas_bit = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
                 f_emp = st.selectbox("Filtrar por Empresa", empresas_bit)
             with c_f2:
-                # FILTRO DE RANGO: Al pasar una tupla vacía [] permitimos seleccionar dos fechas
+                # Filtro de RANGO
                 rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
 
-            # Aplicamos Filtros
+            # Aplicar Filtros
             df_filtrado = df_bit.copy()
             
             if f_emp != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
             
-            # Lógica para el Rango de Fechas
             if len(rango_fechas) == 2:
-                fecha_inicio, fecha_fin = rango_fechas
-                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= fecha_inicio) & 
-                                          (df_filtrado["Fecha Realizada"] <= fecha_fin)]
+                f_inicio, f_fin = rango_fechas
+                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= f_inicio) & 
+                                          (df_filtrado["Fecha Realizada"] <= f_fin)]
 
             st.dataframe(df_filtrado, use_container_width=True)
             
-            # Extra: Sumatoria de horas en el rango seleccionado
             if "Horas" in df_filtrado.columns:
-                total_horas = df_filtrado["Horas"].sum()
-                st.info(f"⏱️ Total de horas en este filtro: {total_horas}")
+                st.info(f"⏱️ Total de horas en este filtro: {df_filtrado['Horas'].sum()}")
         else:
             st.info("No hay registros todavía.")
