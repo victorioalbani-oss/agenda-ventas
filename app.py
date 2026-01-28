@@ -211,35 +211,36 @@ elif opcion == "Bitácora":
     with b2:
         st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
-            # Creamos el DataFrame
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             
-            # --- SOLUCIÓN AL ERROR: Normalización de columnas ---
-            # Si existe la columna vieja "Fecha", la renombramos a la nueva para que el filtro no explote
-            if "Fecha" in df_bit.columns and "Fecha Realizada" not in df_bit.columns:
-                df_bit = df_bit.rename(columns={"Fecha": "Fecha Realizada"})
+            # Aseguramos que las columnas de fecha sean tipo datetime para comparar
+            df_bit["Fecha Realizada"] = pd.to_datetime(df_bit["Fecha Realizada"]).dt.date
             
-            # Filtros
             c_f1, c_f2 = st.columns(2)
             with c_f1:
                 empresas_bit = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
                 f_emp = st.selectbox("Filtrar por Empresa", empresas_bit)
             with c_f2:
-                # El valor por defecto es None para que no filtre nada al principio
-                f_fecha = st.date_input("Filtrar por Fecha Realizada", value=None)
+                # FILTRO DE RANGO: Al pasar una tupla vacía [] permitimos seleccionar dos fechas
+                rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
 
-            # Aplicamos los filtros uno por uno
+            # Aplicamos Filtros
             df_filtrado = df_bit.copy()
             
             if f_emp != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
             
-            # Solo filtramos por fecha si el usuario seleccionó una en el calendario
-            if f_fecha is not None:
-                # Convertimos a formato fecha para asegurar la comparación
-                df_filtrado["Fecha Realizada"] = pd.to_datetime(df_filtrado["Fecha Realizada"]).dt.date
-                df_filtrado = df_filtrado[df_filtrado["Fecha Realizada"] == f_fecha]
+            # Lógica para el Rango de Fechas
+            if len(rango_fechas) == 2:
+                fecha_inicio, fecha_fin = rango_fechas
+                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= fecha_inicio) & 
+                                          (df_filtrado["Fecha Realizada"] <= fecha_fin)]
 
             st.dataframe(df_filtrado, use_container_width=True)
+            
+            # Extra: Sumatoria de horas en el rango seleccionado
+            if "Horas" in df_filtrado.columns:
+                total_horas = df_filtrado["Horas"].sum()
+                st.info(f"⏱️ Total de horas en este filtro: {total_horas}")
         else:
             st.info("No hay registros todavía.")
