@@ -116,112 +116,101 @@ elif opcion == "Contactos":
         else:
             st.write("Cargá una empresa para habilitar la búsqueda.")
 
-# --- MÓDULO ÓRDENES DE COMPRA (DINÁMICO CON RANGO DE FECHAS) ---
+# --- MÓDULO ÓRDENES DE COMPRA (COMPLETO: FILTROS, ELIMINACIÓN Y DESCARGA FÁCIL) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
-    
-    tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Búsqueda"])
+    tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Gestión"])
 
     if not st.session_state.db_contactos:
         st.warning("Primero cargá un Contacto en el módulo correspondiente.")
     else:
         with tab_carga:
-            with st.container():
+            with st.form("form_oc", clear_on_submit=True):
                 c_oc1, c_oc2 = st.columns(2)
-                nombre_oc = c_oc1.text_input("Nombre OC")
+                nombre_oc = c_oc1.text_input("Nombre OC / Referencia")
                 fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
                 emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
                 dolar = c_oc2.number_input("Dólar Pautado", value=1000.0)
                 f_cobro = st.date_input("Fecha Posible Cobro")
-
-            st.write("---")
-            st.subheader("Agregar Artículos")
-            if st.session_state.db_productos:
-                prod_sel = st.selectbox("Elegir Artículo", [p['Nombre'] for p in st.session_state.db_productos])
-                col_it1, col_it2 = st.columns(2)
-                cant_it = col_it1.number_input("Cantidad", min_value=1)
-                p_orig = next(p['U$S'] for p in st.session_state.db_productos if p['Nombre'] == prod_sel)
-                prec_it = col_it2.number_input("Precio Unitario U$S", value=float(p_orig))
                 
-                if st.button("➕ Añadir a esta OC"):
-                    st.session_state.db_items_oc_actual.append({
-                        "Producto": prod_sel, "Cantidad": cant_it, "U$S Unit": prec_it, "Subtotal": cant_it * prec_it
-                    })
-            
-            if st.session_state.db_items_oc_actual:
-                df_items = pd.DataFrame(st.session_state.db_items_oc_actual)
-                st.table(df_items)
-                total_usd = df_items["Subtotal"].sum()
-                st.metric("Total OC", f"U$S {total_usd:,.2f}")
-                
-                if st.button("💾 GUARDAR ORDEN COMPLETA"):
-                    oc_id = f"OC - {len(st.session_state.db_oc) + 1}"
-                    st.session_state.db_oc.append({
-                        "ID": oc_id, 
-                        "Empresa": emp_oc, 
-                        "Monto": total_usd, 
-                        "Fecha": fecha_oc, # Guardamos como objeto date
-                        "Estado": "Pendiente", 
-                        "Referencia": nombre_oc
-                    })
-                    st.session_state.db_items_oc_actual = []
-                    st.success(f"Orden {oc_id} guardada.")
+                st.write("---")
+                st.subheader("Agregar Artículos")
+                if st.session_state.db_productos:
+                    prod_sel = st.selectbox("Elegir Artículo", [p['Nombre'] for p in st.session_state.db_productos])
+                    cant_it = st.number_input("Cantidad", min_value=1)
+                    p_orig = next((p['U$S'] for p in st.session_state.db_productos if p['Nombre'] == prod_sel), 0.0)
+                    prec_it = st.number_input("Precio Unitario U$S", value=float(p_orig))
+                    
+                    if st.form_submit_button("💾 GUARDAR ORDEN COMPLETA"):
+                        total_usd = cant_it * prec_it
+                        oc_id = f"OC - {len(st.session_state.db_oc) + 1}"
+                        st.session_state.db_oc.append({
+                            "ID": oc_id, "Empresa": emp_oc, "Monto": total_usd, 
+                            "Fecha": fecha_oc, "Estado": "Pendiente", "Referencia": nombre_oc
+                        })
+                        st.success(f"Orden {oc_id} guardada con éxito.")
 
         with tab_historial:
-            st.subheader("🔎 Filtros de Historial")
+            st.subheader("🔎 Filtros y Descargas")
             if st.session_state.db_oc:
-                df_historial = pd.DataFrame(st.session_state.db_oc)
-                
+                df_hist = pd.DataFrame(st.session_state.db_oc)
                 # Aseguramos que la columna Fecha sea comparable
-                df_historial["Fecha"] = pd.to_datetime(df_historial["Fecha"]).dt.date
+                df_hist["Fecha"] = pd.to_datetime(df_hist["Fecha"]).dt.date
                 
-                c_f1, c_f2 = st.columns(2)
-                with c_f1:
-                    empresas_con_oc = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
-                    empresa_buscada = st.selectbox("Filtrar por Empresa", empresas_con_oc)
-                with c_f2:
+                c1, c2 = st.columns(2)
+                with c1:
+                    emp_busc = st.selectbox("Filtrar por Empresa", ["Todas"] + sorted(list(df_hist["Empresa"].unique())))
+                with c2:
                     rango_oc = st.date_input("Filtrar por Rango de Fechas", value=[])
 
                 # Aplicar Filtros
-                df_filtrado_oc = df_historial.copy()
-                
-                if empresa_buscada != "Todas":
-                    df_filtrado_oc = df_filtrado_oc[df_filtrado_oc['Empresa'] == empresa_buscada]
-                
+                df_f = df_hist.copy()
+                if emp_busc != "Todas":
+                    df_f = df_f[df_f['Empresa'] == emp_busc]
                 if len(rango_oc) == 2:
-                    f_ini, f_fin = rango_oc
-                    df_filtrado_oc = df_filtrado_oc[(df_filtrado_oc["Fecha"] >= f_ini) & 
-                                                    (df_filtrado_oc["Fecha"] <= f_fin)]
+                    df_f = df_f[(df_f["Fecha"] >= rango_oc[0]) & (df_f["Fecha"] <= rango_oc[1])]
+
+                # --- BOTONES DE DESCARGA RÁPIDA ---
+                if not df_f.empty:
+                    st.write("### ⬇️ Exportar Selección")
+                    btn_col1, btn_col2 = st.columns(2)
+                    
+                    # Excel
+                    csv = df_f.to_csv(index=False).encode('utf-8')
+                    btn_col1.download_button(
+                        "📥 DESCARGAR EXCEL", csv, f"Reporte_OC_{emp_busc}.csv", "text/csv", use_container_width=True
+                    )
+                    
+                    # PDF Vista
+                    if btn_col2.button("📄 PREPARAR PDF", use_container_width=True):
+                        st.info("Vista preparada. Usa la función de imprimir de tu navegador.")
+                        st.markdown(f"**Reporte de OCs - {emp_busc}**")
+                        st.table(df_f)
                 
-                st.dataframe(df_filtrado_oc, use_container_width=True)
+                st.write("---")
+                st.dataframe(df_f, use_container_width=True)
+                st.metric("Total Facturado en Filtro", f"U$S {df_f['Monto'].sum():,.2f}")
+
+                # --- SECCIÓN ELIMINAR ---
+                st.write("---")
+                st.write("⚠️ **Gestión de Registros**")
+                col_del1, col_del2 = st.columns(2)
                 
-                # Resumen de facturación filtrada
-                if not df_filtrado_oc.empty:
-                    monto_total = df_filtrado_oc["Monto"].sum()
-                    st.info(f"💰 **Facturación total en este filtro:** U$S {monto_total:,.2f}")
+                with col_del1:
+                    # Eliminar por ID para mayor seguridad
+                    id_a_eliminar = st.selectbox("Seleccionar ID para eliminar", df_f["ID"].tolist() if not df_f.empty else ["Ninguno"])
+                    if st.button("🗑️ Eliminar Orden Seleccionada"):
+                        if id_a_eliminar != "Ninguno":
+                            st.session_state.db_oc = [o for o in st.session_state.db_oc if o["ID"] != id_a_eliminar]
+                            st.rerun()
+
+                with col_del2:
+                    if st.checkbox("Habilitar borrado total de OCs"):
+                        if st.button("💥 BORRAR TODO EL HISTORIAL"):
+                            st.session_state.db_oc = []
+                            st.rerun()
             else:
-                st.info("No hay órdenes de compra registradas todavía.")
-with tab_historial:
-            st.subheader("🔎 Filtros de Historial de OCs")
-            if st.session_state.db_oc:
-                df_historial = pd.DataFrame(st.session_state.db_oc)
-                df_historial["Fecha"] = pd.to_datetime(df_historial["Fecha"]).dt.date
-                
-                c_f1, c_f2 = st.columns(2)
-                with c_f1:
-                    empresas_con_oc = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
-                    empresa_buscada = st.selectbox("Filtrar por Empresa", empresas_con_oc)
-                with c_f2:
-                    rango_oc = st.date_input("Filtrar por Rango de Fechas", value=[])
-
-                # --- Lógica de Filtrado ---
-                df_filtrado_oc = df_historial.copy()
-                if empresa_buscada != "Todas":
-                    df_filtrado_oc = df_filtrado_oc[df_filtrado_oc['Empresa'] == empresa_buscada]
-                if len(rango_oc) == 2:
-                    f_ini, f_fin = rango_oc
-                    df_filtrado_oc = df_filtrado_oc[(df_filtrado_oc["Fecha"] >= f_ini) & (df_filtrado_oc["Fecha"] <= f_fin)]
-
+                st.info("No hay órdenes registradas.")
         
 # --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
 elif opcion == "Bitácora":
