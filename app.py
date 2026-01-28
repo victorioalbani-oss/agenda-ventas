@@ -94,49 +94,69 @@ elif opcion == "Contactos":
         else:
             st.write("Cargá una empresa para habilitar la búsqueda.")
 
-
 # --- MÓDULO ÓRDENES DE COMPRA (DINÁMICO) ---
 elif opcion == "Órdenes de Compra":
-    st.header("🛒 Nueva Orden de Compra")
+    st.header("🛒 Gestión de Órdenes de Compra")
+    
+    # Creamos dos pestañas: una para cargar y otra para ver el historial
+    tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Búsqueda"])
+
     if not st.session_state.db_contactos:
         st.warning("Primero cargá un Contacto en el módulo correspondiente.")
     else:
-        with st.container():
-            c_oc1, c_oc2 = st.columns(2)
-            nombre_oc = c_oc1.text_input("Nombre OC")
-            fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
-            emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
-            dolar = c_oc2.number_input("Dólar Pautado", value=1000.0)
-            f_cobro = st.date_input("Fecha Posible Cobro")
+        with tab_carga:
+            with st.container():
+                c_oc1, c_oc2 = st.columns(2)
+                nombre_oc = c_oc1.text_input("Nombre OC")
+                fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
+                emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
+                dolar = c_oc2.number_input("Dólar Pautado", value=1000.0)
+                f_cobro = st.date_input("Fecha Posible Cobro")
 
-        st.write("---")
-        st.subheader("Agregar Artículos")
-        if st.session_state.db_productos:
-            prod_sel = st.selectbox("Elegir Artículo", [p['Nombre'] for p in st.session_state.db_productos])
-            col_it1, col_it2 = st.columns(2)
-            cant_it = col_it1.number_input("Cantidad", min_value=1)
-            # Buscar precio original
-            p_orig = next(p['U$S'] for p in st.session_state.db_productos if p['Nombre'] == prod_sel)
-            prec_it = col_it2.number_input("Precio Unitario U$S", value=float(p_orig))
+            st.write("---")
+            st.subheader("Agregar Artículos")
+            if st.session_state.db_productos:
+                prod_sel = st.selectbox("Elegir Artículo", [p['Nombre'] for p in st.session_state.db_productos])
+                col_it1, col_it2 = st.columns(2)
+                cant_it = col_it1.number_input("Cantidad", min_value=1)
+                p_orig = next(p['U$S'] for p in st.session_state.db_productos if p['Nombre'] == prod_sel)
+                prec_it = col_it2.number_input("Precio Unitario U$S", value=float(p_orig))
+                
+                if st.button("➕ Añadir a esta OC"):
+                    st.session_state.db_items_oc_actual.append({
+                        "Producto": prod_sel, "Cantidad": cant_it, "U$S Unit": prec_it, "Subtotal": cant_it * prec_it
+                    })
             
-            if st.button("➕ Añadir a esta OC"):
-                st.session_state.db_items_oc_actual.append({
-                    "Producto": prod_sel, "Cantidad": cant_it, "U$S Unit": prec_it, "Subtotal": cant_it * prec_it
-                })
-        
-        if st.session_state.db_items_oc_actual:
-            df_items = pd.DataFrame(st.session_state.db_items_oc_actual)
-            st.table(df_items)
-            total_usd = df_items["Subtotal"].sum()
-            st.metric("Total OC", f"U$S {total_usd}")
-            
-            if st.button("💾 GUARDAR ORDEN COMPLETA"):
-                oc_id = f"OC - {len(st.session_state.db_oc) + 1}"
-                st.session_state.db_oc.append({
-                    "ID": oc_id, "Empresa": emp_oc, "Monto": total_usd, "Fecha": fecha_oc, "Estado": "Pendiente"
-                })
-                st.session_state.db_items_oc_actual = []
-                st.success(f"Orden {oc_id} guardada.")
+            if st.session_state.db_items_oc_actual:
+                df_items = pd.DataFrame(st.session_state.db_items_oc_actual)
+                st.table(df_items)
+                total_usd = df_items["Subtotal"].sum()
+                st.metric("Total OC", f"U$S {total_usd}")
+                
+                if st.button("💾 GUARDAR ORDEN COMPLETA"):
+                    oc_id = f"OC - {len(st.session_state.db_oc) + 1}"
+                    st.session_state.db_oc.append({
+                        "ID": oc_id, "Empresa": emp_oc, "Monto": total_usd, 
+                        "Fecha": str(fecha_oc), "Estado": "Pendiente", "Referencia": nombre_oc
+                    })
+                    st.session_state.db_items_oc_actual = []
+                    st.success(f"Orden {oc_id} guardada.")
+
+        with tab_historial:
+            st.subheader("🔎 Buscar por Empresa")
+            if st.session_state.db_oc:
+                # Sacamos la lista de empresas que tienen OCs
+                empresas_con_oc = sorted(list(set([o['Empresa'] for o in st.session_state.db_oc])))
+                empresa_buscada = st.selectbox("Seleccionar Empresa para filtrar historial", ["Todas"] + empresas_con_oc)
+                
+                df_historial = pd.DataFrame(st.session_state.db_oc)
+                
+                if empresa_buscada != "Todas":
+                    df_historial = df_historial[df_historial['Empresa'] == empresa_buscada]
+                
+                st.dataframe(df_historial, use_container_width=True)
+            else:
+                st.info("No hay órdenes de compra registradas todavía.")
 
 # --- MÓDULO BITÁCORA ---
 elif opcion == "Bitácora":
