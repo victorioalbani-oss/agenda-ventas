@@ -183,14 +183,58 @@ elif opcion == "Órdenes de Compra":
 # --- MÓDULO BITÁCORA ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
-    b1, b2 = st.tabs(["Agregar Bitácora", "Historial de Registros"])
+    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Filtros"])
+    
     with b1:
         with st.form("form_bit", clear_on_submit=True):
-            emp_b = st.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos] if st.session_state.db_contactos else ["Sin contactos"])
-            horas = st.number_input("Horas", min_value=0.1)
-            cont = st.text_area("Contenido")
+            # Selección de Empresa
+            emp_b = st.selectbox("Asociar a Empresa", [c['Empresa'] for c in st.session_state.db_contactos] if st.session_state.db_contactos else ["Sin contactos"])
+            
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
+            with col_b2:
+                fecha_recordar = st.date_input("Fecha a Recordar / Próximo Seguimiento", datetime.now())
+            
+            horas = st.number_input("Horas dedicadas (opcional)", min_value=0.0, step=0.5)
+            cont = st.text_area("Detalle de la actividad o gestión")
+            
             if st.form_submit_button("Cargar Bitácora"):
                 st.session_state.db_bitacora.append({
-                    "Fecha": datetime.now().date(), "Empresa": emp_b, "Horas": horas, "Detalle": cont
+                    "Fecha Realizada": fecha_realizada,
+                    "Fecha Recordar": fecha_recordar,
+                    "Empresa": emp_b,
+                    "Horas": horas,
+                    "Detalle": cont,
+                    "Registro": datetime.now().strftime("%Y-%m-%d %H:%M") # Fecha de carga real
                 })
-                st.success("Bitácora del día agregada.")
+                st.success("Registro guardado en la bitácora.")
+
+    with b2:
+        st.subheader("🔎 Historial de Gestiones")
+        if st.session_state.db_bitacora:
+            df_bit = pd.DataFrame(st.session_state.db_bitacora)
+            
+            # --- FILTROS ---
+            c_f1, c_f2 = st.columns(2)
+            with c_f1:
+                empresas_bit = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
+                f_emp = st.selectbox("Filtrar por Empresa", empresas_bit)
+            with c_f2:
+                # Filtro por fecha realizada
+                f_fecha = st.date_input("Filtrar por Fecha Realizada (Seleccionar día)", value=None)
+
+            # Aplicar Filtros
+            df_filtrado = df_bit.copy()
+            if f_emp != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
+            if f_fecha:
+                df_filtrado = df_filtrado[df_filtrado["Fecha Realizada"] == f_fecha]
+
+            # Mostrar Tabla
+            st.dataframe(df_filtrado, use_container_width=True)
+            
+            # Resumen rápido
+            st.write(f"**Total de registros encontrados:** {len(df_filtrado)}")
+        else:
+            st.info("No hay registros en la bitácora todavía.")
