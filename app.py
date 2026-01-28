@@ -44,10 +44,19 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS ---
+# --- MÓDULO CONTACTOS (CON CATEGORÍAS DINÁMICAS) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
-    t1, t2, t3, t4 = st.tabs(["Agregar Contacto", "Lista de Contactos", "Buscar/Editar", "Cliente Activo"])
+    
+    # Inicializar estados de categorías en el diccionario si no existen
+    for c in st.session_state.db_contactos:
+        if "Categoria" not in c:
+            c["Categoria"] = "Sin Categoría"
+
+    t1, t2, t3, t_act, t_int, t_vis, t_otr = st.tabs([
+        "➕ Agregar", "📋 Lista Total", "🔍 Buscar/Editar", 
+        "✅ Activos", "⭐ Interesados", "📍 Por Visitar", "👤 De Otros"
+    ])
     
     with t1:
         with st.form("form_contacto", clear_on_submit=True):
@@ -61,8 +70,9 @@ elif opcion == "Contactos":
                 maps = st.text_input("Dirección Google Maps")
             with col2:
                 web = st.text_input("Página Web")
-                tel1, tel2, tel3 = st.text_input("Teléfono 1"), st.text_input("Teléfono 2"), st.text_input("Teléfono 3")
-                mail1, mail2, mail3 = st.text_input("Mail 1"), st.text_input("Mail 2"), st.text_input("Mail 3")
+                tel1, tel2 = st.text_input("Teléfono 1"), st.text_input("Teléfono 2")
+                mail1, mail2 = st.text_input("Mail 1"), st.text_input("Mail 2")
+                cat_inicial = st.selectbox("Asignar Categoría Inicial", ["Sin Categoría", "Activo", "Interesado", "Por Visitar", "De Otro"])
                 extra = st.text_area("Dato Extra")
             
             if st.form_submit_button("Guardar Contacto"):
@@ -70,51 +80,59 @@ elif opcion == "Contactos":
                 st.session_state.db_contactos.append({
                     "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
+                    "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, 
+                    "Extra": extra, "Categoria": cat_inicial
                 })
-                st.success(f"Contacto {cid} guardado y campos limpios.")
+                st.success(f"Contacto {empresa} guardado.")
 
     with t2:
-        st.subheader("📋 Lista de Empresas Registradas")
         if st.session_state.db_contactos:
-            df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            st.dataframe(df_contactos[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
+            st.dataframe(pd.DataFrame(st.session_state.db_contactos)[["N°", "Empresa", "Actividad", "Categoria", "T1"]], use_container_width=True)
         else:
-            st.info("No hay contactos en la lista.")
+            st.info("No hay contactos.")
 
     with t3:
-        st.subheader("🔍 Buscador de Detalle")
         if st.session_state.db_contactos:
             nombres = [c['Empresa'] for c in st.session_state.db_contactos]
-            busqueda = st.selectbox("Seleccioná una empresa", nombres)
-            
-            # Buscamos los datos
+            busqueda = st.selectbox("Seleccioná una empresa para gestionar", nombres)
             c = next(item for item in st.session_state.db_contactos if item['Empresa'] == busqueda)
             
-            # --- DISEÑO MEJORADO DEL DETALLE ---
-            st.markdown(f"### {c['Empresa']} ({c['N°']})")
+            st.markdown(f"### {c['Empresa']} - {c['Categoria']}")
             
+            # BOTÓN PARA CAMBIAR CATEGORÍA
+            nueva_cat = st.selectbox("Cambiar categoría a:", ["Sin Categoría", "Activo", "Interesado", "Por Visitar", "De Otro"], 
+                                     index=["Sin Categoría", "Activo", "Interesado", "Por Visitar", "De Otro"].index(c['Categoria']))
+            if st.button("Actualizar Categoría"):
+                c['Categoria'] = nueva_cat
+                st.success(f"{c['Empresa']} ahora es '{nueva_cat}'")
+                st.rerun()
+
             col_a, col_b = st.columns(2)
             with col_a:
-                st.markdown("**📍 Ubicación**")
                 st.write(f"🏠 {c['Ciudad']}, {c.get('Provincia', '')} ({c['País']})")
-                if c['Maps']:
-                    st.link_button("🌐 Ver en Google Maps", c['Maps'])
-                
-                st.markdown("**🛠 Actividad**")
-                st.write(f"💼 {c['Actividad']}")
-                
+                if c['Maps']: st.link_button("🌐 Maps", c['Maps'])
             with col_b:
-                st.markdown("**📞 Contacto**")
-                st.write(f"📱 {c['T1']} / {c['T2']} / {c['T3']}")
-                st.write(f"📧 {c['M1']} / {c['M2']} / {c['M3']}")
-                if c['Web']:
-                    st.write(f"💻 [{c['Web']}]({c['Web']})")
-
-            st.markdown("**📝 Datos Extra**")
-            st.info(c['Extra'] if c['Extra'] else "Sin datos adicionales.")
+                st.write(f"📱 {c['T1']} | 📧 {c['M1']}")
         else:
-            st.write("Cargá una empresa para habilitar la búsqueda.")
+            st.write("Cargá una empresa primero.")
+
+    # --- LÓGICA DE PESTAÑAS POR ESTADO ---
+    def render_categoria(nombre_cat, color):
+        contactos_cat = [c for c in st.session_state.db_contactos if c.get("Categoria") == nombre_cat]
+        if contactos_cat:
+            for con in contactos_cat:
+                with st.expander(f"🏢 {con['Empresa']}"):
+                    st.write(f"**Actividad:** {con['Actividad']} | **Tel:** {con['T1']}")
+                    if st.button(f"❌ Quitar de {nombre_cat}", key=f"del_{nombre_cat}_{con['Empresa']}"):
+                        con["Categoria"] = "Sin Categoría"
+                        st.rerun()
+        else:
+            st.info(f"No hay empresas marcadas como '{nombre_cat}'.")
+
+    with t_act: render_categoria("Activo", "green")
+    with t_int: render_categoria("Interesado", "blue")
+    with t_vis: render_categoria("Por Visitar", "orange")
+    with t_otr: render_categoria("De Otro", "gray")
 
 # --- MÓDULO ÓRDENES DE COMPRA (FINAL: MULTI-ARTÍCULO + PDF + ELIMINAR) ---
 elif opcion == "Órdenes de Compra":
