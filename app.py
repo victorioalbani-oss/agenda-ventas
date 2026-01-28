@@ -74,6 +74,26 @@ elif opcion == "Contactos":
                 })
                 st.success(f"Contacto {cid} guardado y campos limpios.")
 
+    with t2:
+        st.subheader("📋 Lista de Empresas Registradas")
+        if st.session_state.db_contactos:
+            df_contactos = pd.DataFrame(st.session_state.db_contactos)
+            # Mostramos la tabla con las columnas principales
+            st.dataframe(df_contactos[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
+        else:
+            st.info("No hay contactos en la lista.")
+
+    with t3:
+        st.subheader("🔍 Buscador de Detalle")
+        if st.session_state.db_contactos:
+            nombres = [c['Empresa'] for c in st.session_state.db_contactos]
+            busqueda = st.selectbox("Seleccioná una empresa para ver todo su detalle", nombres)
+            # Buscamos los datos del seleccionado
+            seleccionado = next(c for c in st.session_state.db_contactos if c['Empresa'] == busqueda)
+            st.write(seleccionado)
+        else:
+            st.write("Cargá una empresa para habilitar la búsqueda.")
+            
 # --- MÓDULO ÓRDENES DE COMPRA (DINÁMICO) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Nueva Orden de Compra")
