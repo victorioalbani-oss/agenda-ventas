@@ -247,10 +247,6 @@ elif opcion == "Bitácora":
                     if len(st.session_state.db_bitacora) > 0:
                         st.session_state.db_bitacora.pop()
                         st.rerun() # Reinicia la app para mostrar los cambios
-                
-                if st.checkbox("Habilitar borrado total"):
-                    if st.button("💥 BORRAR TODA LA BITÁCORA"):
-                        st.session_state.db_bitacora = []
-                        st.rerun()
+            
         else:
             st.info("No hay registros todavía.")
