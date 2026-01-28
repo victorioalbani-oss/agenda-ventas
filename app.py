@@ -204,29 +204,46 @@ elif opcion == "Órdenes de Compra":
                 if len(rango_oc) == 2:
                     df_f = df_f[(df_f["Fecha"] >= rango_oc[0]) & (df_f["Fecha"] <= rango_oc[1])]
 
-                # --- BOTONES DE DESCARGA RÁPIDA ---
                 if not df_f.empty:
-                    st.write("### ⬇️ Exportar Reporte")
+                    st.write("### ⬇️ Descarga Directa")
                     btn_col1, btn_col2 = st.columns(2)
                     
-                    # Excel (Este siempre funciona directo)
+                    # 1. EXCEL (CSV)
                     csv = df_f.to_csv(index=False).encode('utf-8')
-                    btn_col1.download_button("📥 EXCEL", csv, f"OC_{emp_busc}.csv", "text/csv", use_container_width=True)
+                    btn_col1.download_button("📥 DESCARGAR EXCEL", csv, f"OC_{emp_busc}.csv", "text/csv", use_container_width=True)
                     
-                    # PDF (Modo Seguro: Vista de Impresión)
-                    preparar = btn_col2.button("📄 PREPARAR PDF", use_container_width=True)
+                    # 2. PDF (Descarga Directa vía HTML)
+                    monto_total_f = df_f['Monto'].sum()
+                    html_reporte = f"""
+                    <html>
+                    <head><style>
+                        body {{ font-family: Arial, sans-serif; }}
+                        h2 {{ color: #1f77b4; }}
+                        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                        th {{ background-color: #f2f2f2; }}
+                        .total {{ font-weight: bold; font-size: 1.2em; margin-top: 20px; }}
+                    </style></head>
+                    <body>
+                        <h2>Reporte de Órdenes de Compra</h2>
+                        <p><b>Empresa:</b> {emp_busc}</p>
+                        <p><b>Fecha de reporte:</b> {datetime.now().date()}</p>
+                        {df_f.to_html(index=False)}
+                        <p class="total">Monto Total Filtrado: U$S {monto_total_f:,.2f}</p>
+                    </body>
+                    </html>
+                    """
+                    btn_col2.download_button(
+                        label="📄 DESCARGAR PDF (HTML)",
+                        data=html_reporte,
+                        file_name=f"Reporte_OC_{emp_busc}.html",
+                        mime="text/html",
+                        use_container_width=True
+                    )
                 
                 st.write("---")
-                
-                # Si el usuario tocó "Preparar PDF", mostramos una tabla limpia para imprimir
-                if 'preparar' in locals() and preparar:
-                    st.success("✅ REPORTE LISTO. Ahora: 1. Presioná Ctrl+P (o Imprimir en tu celu) | 2. Elegí 'Guardar como PDF'")
-                    st.markdown(f"## Reporte de Órdenes - {emp_busc}")
-                    st.table(df_f) # La tabla estática sale perfecta en PDF
-                else:
-                    # Si no, mostramos la tabla normal interactiva
-                    st.dataframe(df_f, use_container_width=True)
-                    st.metric("Total Facturado", f"U$S {df_f['Monto'].sum():,.2f}")
+                st.dataframe(df_f, use_container_width=True)
+                st.metric("Total Facturado", f"U$S {df_f['Monto'].sum():,.2f}")
 
                 # --- ELIMINACIÓN ---
                 st.write("---")
