@@ -69,7 +69,7 @@ elif opcion == "Contactos":
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
                 st.session_state.db_contactos.append({
                     "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
-                    "Maps": maps, "Actividad": actividad, "Web": web,
+                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
                 })
                 st.success(f"Contacto {cid} guardado y campos limpios.")
@@ -78,7 +78,6 @@ elif opcion == "Contactos":
         st.subheader("📋 Lista de Empresas Registradas")
         if st.session_state.db_contactos:
             df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            # Mostramos la tabla con las columnas principales
             st.dataframe(df_contactos[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
         else:
             st.info("No hay contactos en la lista.")
@@ -87,10 +86,33 @@ elif opcion == "Contactos":
         st.subheader("🔍 Buscador de Detalle")
         if st.session_state.db_contactos:
             nombres = [c['Empresa'] for c in st.session_state.db_contactos]
-            busqueda = st.selectbox("Seleccioná una empresa para ver todo su detalle", nombres)
-            # Buscamos los datos del seleccionado
-            seleccionado = next(c for c in st.session_state.db_contactos if c['Empresa'] == busqueda)
-            st.write(seleccionado)
+            busqueda = st.selectbox("Seleccioná una empresa", nombres)
+            
+            # Buscamos los datos
+            c = next(item for item in st.session_state.db_contactos if item['Empresa'] == busqueda)
+            
+            # --- DISEÑO MEJORADO DEL DETALLE ---
+            st.markdown(f"### {c['Empresa']} ({c['N°']})")
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown("**📍 Ubicación**")
+                st.write(f"🏠 {c['Ciudad']}, {c.get('Provincia', '')} ({c['País']})")
+                if c['Maps']:
+                    st.link_button("🌐 Ver en Google Maps", c['Maps'])
+                
+                st.markdown("**🛠 Actividad**")
+                st.write(f"💼 {c['Actividad']}")
+                
+            with col_b:
+                st.markdown("**📞 Contacto**")
+                st.write(f"📱 {c['T1']} / {c['T2']} / {c['T3']}")
+                st.write(f"📧 {c['M1']} / {c['M2']} / {c['M3']}")
+                if c['Web']:
+                    st.write(f"💻 [{c['Web']}]({c['Web']})")
+
+            st.markdown("**📝 Datos Extra**")
+            st.info(c['Extra'] if c['Extra'] else "Sin datos adicionales.")
         else:
             st.write("Cargá una empresa para habilitar la búsqueda.")
 
