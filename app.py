@@ -10,25 +10,41 @@ st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar_datos_nube():
+    # Cargamos cada pestaña de forma independiente para evitar que una vacía rompa todo
+    
+    # Contactos
     try:
-        # Leemos cada pestaña de tu Google Sheets
-        st.session_state.db_contactos = conn.read(worksheet="contactos").to_dict('records')
-        st.session_state.db_productos = conn.read(worksheet="productos").to_dict('records')
-        st.session_state.db_bitacora = conn.read(worksheet="bitacora").to_dict('records')
-        st.session_state.db_oc = conn.read(worksheet="oc").to_dict('records')
+        df_c = conn.read(worksheet="contactos")
+        st.session_state.db_contactos = df_c.dropna(how="all").to_dict('records')
     except:
-        # Si la planilla está vacía, inicializamos las listas vacías
         st.session_state.db_contactos = []
+
+    # Productos
+    try:
+        df_p = conn.read(worksheet="productos")
+        st.session_state.db_productos = df_p.dropna(how="all").to_dict('records')
+    except:
         st.session_state.db_productos = []
+
+    # Bitácora
+    try:
+        df_b = conn.read(worksheet="bitacora")
+        st.session_state.db_bitacora = df_b.dropna(how="all").to_dict('records')
+    except:
         st.session_state.db_bitacora = []
+
+    # Órdenes de Compra
+    try:
+        df_oc = conn.read(worksheet="oc")
+        st.session_state.db_oc = df_oc.dropna(how="all").to_dict('records')
+    except:
         st.session_state.db_oc = []
 
 def sincronizar(pestaña, datos):
-    # Esta línea convierte la lista de la app en formato para el Excel
-    df = pd.DataFrame(datos)
-    # Esta línea manda los datos físicamente a Google Sheets
-    conn.update(worksheet=pestaña, data=df)
-    st.toast(f"✅ Sincronizado en Google Sheets: {pestaña}")
+    if datos: # Solo sincroniza si hay información
+        df = pd.DataFrame(datos)
+        conn.update(worksheet=pestaña, data=df)
+        st.toast(f"✅ Sincronizado en Google Sheets: {pestaña}")
 
 # Inicialización al abrir la app
 if 'db_contactos' not in st.session_state:
