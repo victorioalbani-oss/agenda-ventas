@@ -44,7 +44,7 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (CON EDICIÓN COMPLETA Y ACTUALIZACIÓN EN CASCADA) ---
+# --- MÓDULO CONTACTOS (VERSIÓN LIMPIA: 2 TELÉFONOS Y 2 MAILS) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -72,10 +72,10 @@ elif opcion == "Contactos":
                 web = st.text_input("Página Web")
                 tel1 = st.text_input("Teléfono 1")
                 tel2 = st.text_input("Teléfono 2")
-                tel3 = st.text_input("Teléfono 3")
+                # Teléfono 3 eliminado
                 mail1 = st.text_input("Mail 1")
                 mail2 = st.text_input("Mail 2")
-                mail3 = st.text_input("Mail 3")
+                # Mail 3 eliminado
                 extra = st.text_area("Dato Extra")
             
             if st.form_submit_button("Guardar Contacto"):
@@ -83,7 +83,7 @@ elif opcion == "Contactos":
                 st.session_state.db_contactos.append({
                     "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
+                    "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                 })
                 st.success(f"Contacto {cid} guardado.")
                 st.rerun()
@@ -102,10 +102,9 @@ elif opcion == "Contactos":
             idx = next(i for i, item in enumerate(st.session_state.db_contactos) if item['Empresa'] == busc)
             c = st.session_state.db_contactos[idx]
 
-            # FORMULARIO DE EDICIÓN
             st.markdown(f"### Edición de: {c['Empresa']}")
             with st.form("edit_contacto_form"):
-                nombre_viejo = c['Empresa'] # IMPORTANTE para la cascada
+                nombre_viejo = c['Empresa']
                 col_e1, col_e2 = st.columns(2)
                 with col_e1:
                     new_nom = st.text_input("Nombre Empresa", value=c['Empresa'])
@@ -117,69 +116,53 @@ elif opcion == "Contactos":
                     new_tel1 = st.text_input("Teléfono 1", value=c['T1'])
                     new_tel2 = st.text_input("Teléfono 2", value=c.get('T2',''))
                     new_mail1 = st.text_input("Mail 1", value=c['M1'])
+                    new_mail2 = st.text_input("Mail 2", value=c.get('M2',''))
                     new_web = st.text_input("Web", value=c.get('Web',''))
                     new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
                 
                 if st.form_submit_button("💾 GUARDAR CAMBIOS Y ACTUALIZAR HISTORIAL"):
-                    # 1. Actualizar datos en la lista de contactos
                     st.session_state.db_contactos[idx].update({
                         "Empresa": new_nom, "Actividad": new_act, "País": new_pais,
                         "Ciudad": new_ciudad, "Maps": new_maps, "T1": new_tel1,
-                        "T2": new_tel2, "M1": new_mail1, "Web": new_web, "Extra": new_extra
+                        "T2": new_tel2, "M1": new_mail1, "M2": new_mail2,
+                        "Web": new_web, "Extra": new_extra
                     })
 
-                    # 2. EFECTO CASCADA: Actualizar Bitácora si cambió el nombre
+                    # EFECTO CASCADA
                     if new_nom != nombre_viejo:
                         for reg in st.session_state.db_bitacora:
-                            if reg['Empresa'] == nombre_viejo:
-                                reg['Empresa'] = new_nom
-                        
-                        # 3. EFECTO CASCADA: Actualizar Órdenes de Compra
+                            if reg['Empresa'] == nombre_viejo: reg['Empresa'] = new_nom
                         for oc in st.session_state.db_oc:
-                            if oc['Empresa'] == nombre_viejo:
-                                oc['Empresa'] = new_nom
+                            if oc['Empresa'] == nombre_viejo: oc['Empresa'] = new_nom
                     
-                    st.success("¡Información actualizada en todo el sistema!")
+                    st.success("¡Información actualizada!")
                     st.rerun()
-        else:
-            st.info("Cargá una empresa para editar.")
 
-    # --- LÓGICA DE PESTAÑAS DE SEGUIMIENTO (CON AGREGAR/MODIFICAR) ---
+    # (La lógica de las pestañas de seguimiento queda igual abajo)
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
-        
-        # 1. Buscador para agregar empresas a esta lista específica
         if st.session_state.db_contactos:
             nombres_totales = [c['Empresa'] for c in st.session_state.db_contactos]
             col_add, col_btn = st.columns([3, 1])
             with col_add:
                 emp_a_agregar = st.selectbox(f"Seleccionar empresa para {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
             with col_btn:
-                st.write("##") # Espaciador
+                st.write("##")
                 if st.button("➕ Añadir", key=f"btn_add_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
                         st.rerun()
 
-        st.write("---")
-        
-        # 2. Visualización y Gestión de la lista
         lista = st.session_state[lista_key]
         if lista:
             for emp_nombre in lista:
                 with st.expander(f"🏢 {emp_nombre}"):
                     datos = next((i for i in st.session_state.db_contactos if i['Empresa'] == emp_nombre), None)
-                    if datos:
-                        st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
-                    
-                    # Opción para quitar
+                    if datos: st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
                     if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         st.rerun()
-        else:
-            st.info(f"No hay empresas en la lista de {titulo}.")
 
-    # Estas son las llamadas que ya tenías, ahora con la función mejorada:
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
     with t_int: render_lista_seguimiento("Clientes Interesados", "list_interesados")
     with t_vis: render_lista_seguimiento("Clientes por Visitar", "list_visitar")
