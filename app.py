@@ -342,7 +342,7 @@ elif opcion == "Bitácora":
             st.info("No hay registros todavía.")
 
 
-# --- MÓDULO COBROS (ACTUALIZAR Y ELIMINAR) ---
+# --- MÓDULO COBROS (CON NOMBRE DE MESES Y ELIMINACIÓN) ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
     
@@ -355,17 +355,17 @@ elif opcion == "Cobros":
         st.warning("Primero creá una Orden de Compra en el módulo correspondiente.")
     else:
         with tab_gestion:
-            # Diccionario para seleccionar la OC
+            # Diccionario seguro para seleccionar la OC
             mapeo_oc = {f"{o['ID']} | {o['Empresa']}": o for o in st.session_state.db_oc}
             oc_seleccionada_key = st.selectbox("Seleccioná OC para modificar o eliminar:", list(mapeo_oc.keys()))
             
             datos_oc = mapeo_oc[oc_seleccionada_key]
             oc_id = datos_oc['ID']
 
-            # Cargar datos actuales si existen
+            # Cargar datos actuales o valores por defecto
             info_actual = st.session_state.db_cobros.get(oc_id, {
                 "Estado": "En Tiempo", 
-                "Fecha": datetime.now(), 
+                "Fecha": datetime.now().date(), 
                 "Notas": ""
             })
 
@@ -376,15 +376,13 @@ elif opcion == "Cobros":
                 c1, c2 = st.columns(2)
                 nuevo_estado = c1.selectbox("Estado", ["En Tiempo", "Cobrado", "En Deuda"], 
                                           index=["En Tiempo", "Cobrado", "En Deuda"].index(info_actual["Estado"]))
-                nueva_fecha = c2.date_input("Fecha de Cobro (Real o Estimada)", info_actual["Fecha"])
+                # Aseguramos que la fecha sea objeto date para el input
+                fecha_para_input = info_actual["Fecha"] if isinstance(info_actual["Fecha"], date) else datetime.now().date()
+                nueva_fecha = c2.date_input("Fecha de Cobro (Real o Estimada)", fecha_para_input)
                 nuevas_notas = st.text_input("Notas adicionales", info_actual["Notas"])
                 
                 col_btn1, col_btn2 = st.columns(2)
-                guardar = col_btn1.form_submit_button("💾 ACTUALIZAR / COBRAR")
-                # Botón de eliminar dentro del formulario por estructura de Streamlit
-                eliminar = col_btn2.form_submit_button("🗑️ ELIMINAR COBRO")
-
-                if guardar:
+                if col_btn1.form_submit_button("💾 ACTUALIZAR / COBRAR"):
                     st.session_state.db_cobros[oc_id] = {
                         "Estado": nuevo_estado,
                         "Fecha": nueva_fecha,
@@ -392,38 +390,43 @@ elif opcion == "Cobros":
                         "Monto": datos_oc['Monto'],
                         "Empresa": datos_oc['Empresa']
                     }
-                    st.success(f"¡Orden {oc_id} actualizada a {nuevo_estado}!")
+                    st.success(f"Actualizado a {nuevo_estado}")
                     st.rerun()
                 
-                if eliminar:
+                if col_btn2.form_submit_button("🗑️ ELIMINAR COBRO"):
                     if oc_id in st.session_state.db_cobros:
                         del st.session_state.db_cobros[oc_id]
-                        st.warning(f"Se eliminó el registro de cobro de {oc_id}.")
+                        st.warning("Registro eliminado.")
                         st.rerun()
-                    else:
-                        st.error("Esta orden no tenía un cobro asignado aún.")
-
-            st.write("---")
-            st.subheader("📋 Planilla General de Cobranzas")
-            if st.session_state.db_cobros:
-                df_resumen = pd.DataFrame(list(st.session_state.db_cobros.values()))
-                st.dataframe(df_resumen[["Empresa", "Monto", "Estado", "Fecha"]], use_container_width=True)
 
         with tab_mensual:
             st.subheader("📅 Cobros por Mes")
             if st.session_state.db_cobros:
+                # Diccionario para traducir meses
+                meses_es = {
+                    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+                    7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+                }
+                
                 data_m = []
                 for k, v in st.session_state.db_cobros.items():
+                    f = v['Fecha']
                     data_m.append({
-                        "Mes": v['Fecha'].strftime("%Y-%m"),
+                        "Orden": f, # Usamos la fecha real para ordenar cronológicamente
+                        "Mes_Nombre": f"{meses_es[f.month]} {f.year}",
                         "Empresa": v['Empresa'],
                         "Monto": v['Monto'],
                         "Estado": v['Estado'],
                         "OC": k
                     })
-                df_m = pd.DataFrame(data_m)
-                for mes in sorted(df_m["Mes"].unique()):
-                    with st.expander(f"🗓️ Mes {mes}"):
-                        st.table(df_m[df_m["Mes"] == mes][["OC", "Empresa", "Monto", "Estado"]])
+                
+                df_m = pd.DataFrame(data_m).sort_values("Orden") # Ordenamos por fecha real
+                
+                for mes_label in df_m["Mes_Nombre"].unique():
+                    df_mes = df_m[df_m["Mes_Nombre"] == mes_label]
+                    total_mes = df_mes["Monto"].sum()
+                    # Título limpio: "Marzo 2026 - Total: U$S 1,500.00"
+                    with st.expander(f"🗓️ {mes_label}  |  Total: U$S {total_mes:,.2f}"):
+                        st.table(df_mes[["OC", "Empresa", "Monto", "Estado"]])
             else:
                 st.info("No hay datos de cobros.")
