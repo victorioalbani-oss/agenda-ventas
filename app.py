@@ -75,11 +75,10 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (VERSIÓN DEFINITIVA) ---
+# --- MÓDULO CONTACTOS (CORREGIDO Y SEGURO) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
-    # Inicializamos las listas de seguimiento si no existen
     if "list_activos" not in st.session_state: st.session_state.list_activos = []
     if "list_interesados" not in st.session_state: st.session_state.list_interesados = []
     if "list_visitar" not in st.session_state: st.session_state.list_visitar = []
@@ -107,20 +106,22 @@ elif opcion == "Contactos":
                 mail2 = st.text_input("Mail 2")
                 extra = st.text_area("Dato Extra")
             
+            # EL BOTÓN DE GUARDADO
             if st.form_submit_button("Guardar Contacto"):
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
-                nuevo_contacto = {
+                nuevo = {
                     "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                 }
-                # Guardamos en memoria
-                st.session_state.db_contactos.append(nuevo_contacto)
+                # Primero guardamos en la memoria de la app
+                st.session_state.db_contactos.append(nuevo)
                 
-                # Sincronizamos (ESTA LÍNEA SOLO SE EJECUTA SI PRESIONAS EL BOTÓN)
+                # REGLA DE ORO: La línea de abajo DEBE estar alineada con el append
+                # para que SOLO se ejecute cuando apretás el botón.
                 sincronizar("contactos", st.session_state.db_contactos)
                 
-                st.success(f"Contacto {cid} guardado.")
+                st.success(f"Contacto {cid} guardado en la nube.")
                 st.rerun()
 
     with t2:
