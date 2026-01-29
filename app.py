@@ -265,7 +265,7 @@ elif opcion == "Órdenes de Compra":
                             st.rerun()
             else:
                 st.info("No hay órdenes.")
-                
+
 # --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
