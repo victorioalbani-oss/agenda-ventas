@@ -441,8 +441,7 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-
-# --- MÓDULO HISTORIAL INTEGRAL (DESCARGA DIRECTA) ---
+# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y SIN ERRORES) ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Informe Integral de Empresa")
     
@@ -470,8 +469,7 @@ elif opcion == "Historial Empresas":
 
             st.write("---")
             
-            # --- CONSTRUCCIÓN DEL REPORTE PARA DESCARGA ---
-            # Este HTML es el que se convierte en archivo
+            # 3. CONSTRUCCIÓN DEL HTML
             html_descarga = f"""
             <html>
             <head>
@@ -489,16 +487,15 @@ elif opcion == "Historial Empresas":
             <body>
                 <div class="header">
                     <h1>INFORME INTEGRAL</h1>
-                    <p>Empresa: <b>{empresa_f}</b> | Fecha de emisión: {datetime.now().strftime('%d/%m/%Y')}</p>
+                    <p>Empresa: <b>{empresa_f}</b> | Fecha: {datetime.now().strftime('%d/%m/%Y')}</p>
                 </div>
-                
                 <h3>1. Datos de Contacto</h3>
                 <p><b>ID:</b> {c['N°']} | <b>Actividad:</b> {c['Actividad']}</p>
                 <p><b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
                 <p><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} / {c.get('T3','')}</p>
                 <p><b>Mails:</b> {c['M1']} / {c.get('M2','')} / {c.get('M3','')}</p>
-                <p><b>Web:</b> {c.get('Web','N/A')}</p>
-                <p><b>Extra:</b> {c.get('Extra','N/A')}</p>
+                <p><b>Web:</b> {c.get('Web','N/A')} | <b>Maps:</b> {c.get('Maps','N/A')}</p>
+                <p><b>Dato Extra:</b> {c.get('Extra','N/A')}</p>
 
                 <h3>2. Historial de Bitácora</h3>
                 {filtro_bit[['Fecha', 'Gestion', 'Observaciones']].to_html(index=False) if not filtro_bit.empty else '<p>Sin registros.</p>'}
@@ -513,11 +510,11 @@ elif opcion == "Historial Empresas":
             </html>
             """
 
-            # 3. Botón de Descarga Directa
+            # 4. Botón de Descarga
             st.download_button(
-                label="📥 DESCARGAR INFORME COMPLETO",
+                label="📥 DESCARGAR INFORME COMPLETO (.HTML)",
                 data=html_descarga,
-                file_name=f"Informe_{empresa_f}_{datetime.now().strftime('%Y%m%d')}.html",
+                file_name=f"Informe_{empresa_f}.html",
                 mime="text/html",
                 use_container_width=True,
                 type="primary"
@@ -525,7 +522,7 @@ elif opcion == "Historial Empresas":
 
             # Vista rápida en pantalla
             st.write("---")
-            st.subheader(f"Resumen en pantalla: {empresa_f}")
+            st.subheader(f"Vista previa: {empresa_f}")
             st.write(f"💼 {c['Actividad']} | 📍 {c['Ciudad']} | 📱 {c['T1']}")
             if not filtro_oc.empty:
                 st.metric("Ventas Totales", f"U$S {filtro_oc['Monto'].sum():,.2f}")
