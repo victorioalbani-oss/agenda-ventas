@@ -441,96 +441,105 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-# --- MÓDULO HISTORIAL INTEGRAL (VERSIÓN FINAL ANTI-ERRORES) ---
+# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y COMPLETO) ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Informe Integral de Empresa")
     
     if not st.session_state.db_contactos:
-        st.warning("No hay contactos registrados.")
+        st.warning("No hay contactos registrados. Cargá uno primero.")
     else:
-        # 1. Buscador de Empresa
+        # 1. Buscador Principal
         lista_nombres = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
-        empresa_f = st.selectbox("🔍 Seleccioná la empresa para el reporte:", lista_nombres)
+        empresa_f = st.selectbox("🔍 Seleccioná una empresa para generar el reporte:", lista_nombres)
+
+        # 2. Obtener datos de Contacto
         c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
-        if c:
-            # 2. Filtrar Bitácora (SOLUCIÓN AL KEYERROR)
-            df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
-            filtro_bit = pd.DataFrame()
-            if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
-                filtro_bit = df_bit_all[df_bit_all['Empresa'] == empresa_f]
-                # Solo seleccionamos las columnas si existen en el DataFrame
-                cols_bit_deseadas = ['Fecha', 'Gestion', 'Observaciones']
-                cols_bit_reales = [col for col in cols_bit_deseadas if col in filtro_bit.columns]
-                filtro_bit = filtro_bit[cols_bit_reales]
+        # 3. Filtrar Bitácora de forma segura
+        df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
+        df_bit_f = pd.DataFrame()
+        if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
+            df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f]
+            # Seleccionamos solo columnas existentes para evitar el KeyError
+            cols_bit = [col for col in ['Fecha', 'Gestion', 'Observaciones'] if col in df_bit_f.columns]
+            df_bit_f = df_bit_f[cols_bit]
 
-            # 3. Filtrar Órdenes de Compra (Dólar a la izquierda de Monto)
-            df_oc_all = pd.DataFrame(st.session_state.db_oc)
-            filtro_oc = pd.DataFrame()
-            if not df_oc_all.empty and 'Empresa' in df_oc_all.columns:
-                df_oc_f = df_oc_all[df_oc_all['Empresa'] == empresa_f]
-                # Reordenamos: Dólar antes que Monto
-                cols_oc_deseadas = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-                cols_oc_reales = [col for col in cols_oc_deseadas if col in df_oc_f.columns]
-                filtro_oc = df_oc_f[cols_oc_reales]
+        # 4. Filtrar Órdenes de Compra (Dólar a la izquierda de Monto)
+        df_oc_all = pd.DataFrame(st.session_state.db_oc)
+        df_oc_f = pd.DataFrame()
+        if not df_oc_all.empty and 'Empresa' in df_oc_all.columns:
+            df_oc_f = df_oc_all[df_oc_all['Empresa'] == empresa_f]
+            # Ordenamos: Dólar antes que Monto
+            cols_oc_plan = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
+            cols_oc_existentes = [col for col in cols_oc_plan if col in df_oc_f.columns]
+            df_oc_f = df_oc_f[cols_oc_existentes]
 
-            st.write("---")
-            
-            # 4. Construcción del HTML para Descarga Directa
-            # Usamos .to_html() sin especificar columnas para que use las que ya filtramos arriba
-            html_bitacora = filtro_bit.to_html(index=False) if not filtro_bit.empty else "<p>Sin registros en bitácora.</p>"
-            html_oc = filtro_oc.to_html(index=False) if not filtro_oc.empty else "<p>Sin órdenes de compra.</p>"
+        # --- CONSTRUCCIÓN DEL DOCUMENTO HTML ---
+        html_bitacora = df_bit_f.to_html(index=False) if not df_bit_f.empty else "<p><i>No hay registros en bitácora.</i></p>"
+        html_ordenes = df_oc_f.to_html(index=False) if not df_oc_f.empty else "<p><i>No hay órdenes de compra registradas.</i></p>"
 
-            html_descarga = f"""
-            <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
-                    .header {{ border: 2px solid #1f77b4; padding: 20px; border-radius: 10px; text-align: center; background-color: #f0f8ff; }}
-                    h1 {{ color: #1f77b4; margin: 0; }}
-                    h3 {{ border-bottom: 2px solid #1f77b4; padding-bottom: 5px; margin-top: 20px; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 12px; }}
-                    th {{ background-color: #f2f2f2; }}
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>INFORME INTEGRAL</h1>
-                    <p><b>Empresa:</b> {empresa_f} | <b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
+        html_final = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Helvetica', Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6; }}
+                .header {{ border-bottom: 3px solid #1f77b4; padding-bottom: 10px; margin-bottom: 20px; }}
+                h1 {{ color: #1f77b4; margin: 0; }}
+                h3 {{ background-color: #f4f4f4; padding: 8px; color: #1f77b4; border-left: 5px solid #1f77b4; margin-top: 25px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }}
+                th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+                th {{ background-color: #f8f9fa; color: #333; }}
+                .contacto-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
+                .footer {{ margin-top: 30px; text-align: right; font-weight: bold; font-size: 16px; border-top: 2px solid #eee; padding-top: 10px; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>INFORME INTEGRAL DE GESTIÓN</h1>
+                <p><b>Empresa:</b> {empresa_f} | <b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
+            </div>
+
+            <h3>1. Información del Contacto</h3>
+            <div class="contacto-grid">
+                <div>
+                    <p><b>Actividad:</b> {c['Actividad']}<br>
+                    <b>ID Sistema:</b> {c['N°']}<br>
+                    <b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
                 </div>
-                <h3>1. Datos de Contacto</h3>
-                <p><b>ID:</b> {c['N°']} | <b>Actividad:</b> {c['Actividad']}</p>
-                <p><b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
-                <p><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} | <b>Mails:</b> {c['M1']} / {c.get('M2','')}</p>
-                <p><b>Web:</b> {c.get('Web','N/A')} | <b>Maps:</b> {c.get('Maps','N/A')}</p>
-                <p><b>Observaciones:</b> {c.get('Extra','N/A')}</p>
+                <div>
+                    <p><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} / {c.get('T3','')}<br>
+                    <b>Mails:</b> {c['M1']} / {c.get('M2','')} / {c.get('M3','')}<br>
+                    <b>Web:</b> {c.get('Web','N/A')}</p>
+                </div>
+            </div>
+            <p><b>Observaciones Extra:</b> {c.get('Extra','N/A')}</p>
 
-                <h3>2. Historial de Bitácora</h3>
-                {html_bitacora}
+            <h3>2. Historial de Bitácora</h3>
+            {html_bitacora}
 
-                <h3>3. Historial de Órdenes de Compra</h3>
-                {html_oc}
-                
-                <h3 style="text-align: right;">Total Facturado: U$S {filtro_oc['Monto'].sum() if not filtro_oc.empty else 0:,.2f}</h3>
-            </body>
-            </html>
-            """
+            <h3>3. Detalle de Órdenes de Compra</h3>
+            {html_ordenes}
 
-            # 5. Botón de Descarga
-            st.download_button(
-                label="📥 DESCARGAR INFORME COMPLETO (.HTML)",
-                data=html_descarga,
-                file_name=f"Informe_{empresa_f}.html",
-                mime="text/html",
-                use_container_width=True,
-                type="primary"
-            )
+            <div class="footer">
+                Total Facturado Acumulado: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}
+            </div>
+        </body>
+        </html>
+        """
 
-            # 6. Vista rápida en pantalla
-            st.write("---")
-            st.subheader(f"Vista previa: {empresa_f}")
-            if not filtro_oc.empty:
-                st.dataframe(filtro_oc, use_container_width=True)
-            else:
-                st.info("Esta empresa no tiene Órdenes de Compra.")
+        # --- BOTONES DE ACCIÓN ---
+        st.write("---")
+        st.download_button(
+            label="📥 DESCARGAR INFORME COMPLETO (.HTML)",
+            data=html_final,
+            file_name=f"Reporte_{empresa_f}.html",
+            mime="text/html",
+            use_container_width=True,
+            type="primary"
+        )
+
+        # Vista rápida en pantalla para control
+        with st.expander("👁️ Previsualizar datos en pantalla"):
+            st.write(f"**Empresa:** {c['Empresa']} | **Ubicación:** {c['Ciudad']}")
+            if not df_oc_f.empty:
+                st.dataframe(df_oc_f, use_container_width=True)
