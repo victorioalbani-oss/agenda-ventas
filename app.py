@@ -441,90 +441,104 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-# --- MÓDULO HISTORIAL INTEGRAL (REEMPLAZO CON DÓLAR AJUSTADO) ---
+from fpdf import FPDF
+
+# --- MÓDULO HISTORIAL INTEGRAL (DESCARGA PDF DIRECTA) ---
 elif opcion == "Historial Empresas":
-    st.header("🏢 Historial Integral por Empresa")
+    st.header("🏢 Informe Integral de Empresa")
     
     if not st.session_state.db_contactos:
-        st.warning("No hay contactos registrados. Cargá uno primero.")
+        st.warning("No hay contactos registrados.")
     else:
-        # 1. Elegir Empresa
-        lista_nombres = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
-        empresa_f = st.selectbox("Seleccioná una empresa para ver todo su historial:", lista_nombres)
-
-        # 2. Obtener datos de Contacto
+        nombres_empresas = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
+        empresa_f = st.selectbox("🔍 Seleccioná la empresa:", nombres_empresas)
         c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
-        # 3. Filtrar Bitácora
-        df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
-        df_bit_f = pd.DataFrame()
-        if not df_bit_all.empty:
-            df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f]
+        if c:
+            # Filtrar Datos
+            df_bit = pd.DataFrame(st.session_state.db_bitacora)
+            filtro_bit = df_bit[df_bit['Empresa'] == empresa_f] if not df_bit.empty else pd.DataFrame()
 
-        # 4. Filtrar Órdenes de Compra
-        df_oc_all = pd.DataFrame(st.session_state.db_oc)
-        df_oc_f = pd.DataFrame()
-        if not df_oc_all.empty:
-            df_oc_f = df_oc_all[df_oc_all['Empresa'] == empresa_f]
-            # Definimos el orden de las columnas aquí (Dólar a la izquierda de Monto)
-            columnas_oc = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-            # Filtramos solo las columnas que realmente existan para evitar errores
-            cols_validas = [col for col in columnas_oc if col in df_oc_f.columns]
-            df_oc_f = df_oc_f[cols_validas]
+            df_oc = pd.DataFrame(st.session_state.db_oc)
+            if not df_oc.empty:
+                df_oc_f = df_oc[df_oc['Empresa'] == empresa_f]
+                cols_orden = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
+                filtro_oc = df_oc_f[[col for col in cols_orden if col in df_oc_f.columns]]
+            else:
+                filtro_oc = pd.DataFrame()
 
-        # --- MOSTRAR EN PANTALLA ---
-        st.write("---")
-        col_info1, col_info2 = st.columns(2)
-        with col_info1:
-            st.subheader("📞 Datos de Contacto")
-            st.write(f"**Empresa:** {c['Empresa']}")
-            st.write(f"**Actividad:** {c['Actividad']}")
-            st.write(f"**Ubicación:** {c['Ciudad']}, {c['País']}")
-            st.write(f"**Web:** {c.get('Web', 'N/A')}")
-        with col_info2:
-            st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')}")
-            st.write(f"**Mails:** {c['M1']} / {c.get('M2','')}")
-            st.write(f"**Extra:** {c.get('Extra', 'Sin datos')}")
+            st.write("---")
 
-        st.write("---")
-        st.subheader("📝 Gestiones (Bitácora)")
-        if not df_bit_f.empty:
-            st.dataframe(df_bit_f, use_container_width=True)
-        else:
-            st.info("No hay gestiones registradas para esta empresa.")
+            # --- LÓGICA DE GENERACIÓN PDF ---
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 16)
+            pdf.cell(0, 10, f"INFORME INTEGRAL: {empresa_f}", ln=True, align="C")
+            pdf.set_font("Arial", "I", 10)
+            pdf.cell(0, 10, f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="C")
+            pdf.ln(5)
 
-        st.write("---")
-        st.subheader("🛒 Órdenes de Compra")
-        if not df_oc_f.empty:
-            # Aquí ya sale con el orden de columnas ajustado arriba
-            st.dataframe(df_oc_f, use_container_width=True)
-            st.metric("Total Facturado", f"U$S {df_oc_f['Monto'].sum():,.2f}")
-        else:
-            st.info("No hay órdenes de compra para esta empresa.")
+            # 1. Datos de Contacto
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "1. DATOS DE CONTACTO", ln=True)
+            pdf.set_font("Arial", "", 10)
+            pdf.multi_cell(0, 6, f"Actividad: {c['Actividad']}\nUbicacion: {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}\nWeb: {c.get('Web','N/A')}\nID: {c['N°']}")
+            pdf.multi_cell(0, 6, f"Telefonos: {c['T1']} / {c.get('T2','')} / {c.get('T3','')}\nMails: {c['M1']} / {c.get('M2','')} / {c.get('M3','')}\nExtra: {c.get('Extra','N/A')}")
+            pdf.ln(5)
 
-        # --- SECCIÓN DE DESCARGA PDF/HTML ---
-        st.write("---")
-        if st.button("📄 GENERAR REPORTE PARA PDF", use_container_width=True):
-            st.success("Reporte generado abajo. Usá Ctrl+P para guardar como PDF.")
+            # 2. Bitácora
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "2. HISTORIAL DE BITACORA", ln=True)
+            pdf.set_font("Arial", "", 9)
+            if not filtro_bit.empty:
+                for idx, row in filtro_bit.iterrows():
+                    pdf.multi_cell(0, 5, f"- {row['Fecha']}: {row['Gestion']} | {row['Observaciones']}")
+            else:
+                pdf.cell(0, 10, "Sin registros.", ln=True)
+            pdf.ln(5)
+
+            # 3. Órdenes de Compra
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "3. ORDENES DE COMPRA", ln=True)
+            pdf.set_font("Arial", "B", 9)
+            # Cabecera de tabla OC
+            pdf.cell(20, 7, "ID", 1)
+            pdf.cell(25, 7, "Fecha", 1)
+            pdf.cell(30, 7, "Referencia", 1)
+            pdf.cell(20, 7, "Dolar", 1)
+            pdf.cell(25, 7, "Monto", 1)
+            pdf.cell(25, 7, "Fact.", 1)
+            pdf.ln()
+            pdf.set_font("Arial", "", 8)
             
-            # Construcción del HTML para impresión prolija
-            html_final = f"""
-            <div style="font-family: Arial; padding: 20px; border: 1px solid #ddd;">
-                <h1 style="color: #1f77b4; text-align: center;">INFORME INTEGRAL - {empresa_f}</h1>
-                <p style="text-align: right;">Fecha: {datetime.now().strftime('%d/%m/%Y')}</p>
-                <hr>
-                <h3>1. Datos de la Empresa</h3>
-                <p><b>Actividad:</b> {c['Actividad']} | <b>Ubicación:</b> {c['Ciudad']} ({c['País']})</p>
-                <p><b>Contacto:</b> {c['T1']} | {c['M1']}</p>
-                <p><b>Web:</b> {c.get('Web','')}</p>
-                <hr>
-                <h3>2. Historial de Bitácora</h3>
-                {df_bit_f.to_html(index=False) if not df_bit_f.empty else '<p>Sin registros.</p>'}
-                <hr>
-                <h3>3. Historial de Órdenes de Compra</h3>
-                {df_oc_f.to_html(index=False) if not df_oc_f.empty else '<p>Sin registros.</p>'}
-                <br>
-                <h3 style="text-align: right;">Monto Total: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}</h3>
-            </div>
-            """
-            st.markdown(html_final, unsafe_allow_html=True)
+            total_monto = 0
+            if not filtro_oc.empty:
+                for _, row in filtro_oc.iterrows():
+                    pdf.cell(20, 7, str(row['ID']), 1)
+                    pdf.cell(25, 7, str(row['Fecha']), 1)
+                    pdf.cell(30, 7, str(row['Referencia'])[:15], 1)
+                    pdf.cell(20, 7, str(row.get('Dólar', 0)), 1)
+                    pdf.cell(25, 7, f"{row['Monto']:,.2f}", 1)
+                    pdf.cell(25, 7, str(row.get('Facturación', '-')), 1)
+                    pdf.ln()
+                    total_monto += row['Monto']
+            
+            pdf.set_font("Arial", "B", 11)
+            pdf.ln(5)
+            pdf.cell(0, 10, f"TOTAL FACTURADO: U$S {total_monto:,.2f}", ln=True, align="R")
+
+            # Botón de Descarga Directa PDF
+            pdf_output = pdf.output()
+            st.download_button(
+                label="📥 DESCARGAR REPORTE .PDF",
+                data=pdf_output,
+                file_name=f"Reporte_{empresa_f}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="primary"
+            )
+
+            # Resumen visual rápido en pantalla
+            st.write("---")
+            st.subheader(f"Resumen de {empresa_f}")
+            st.write(f"💼 {c['Actividad']} | 📍 {c['Ciudad']}")
