@@ -160,7 +160,7 @@ elif opcion == "Contactos":
     with t_vis: render_lista("Clientes por Visitar", "list_visitar")
     with t_otr: render_lista("Clientes de Otro", "list_otros")
 
-# --- MÓDULO ÓRDENES DE COMPRA (CON TIPO DE FACTURACIÓN Y DETALLE EXTRA) ---
+# --- MÓDULO ÓRDENES DE COMPRA (CON DÓLAR PAUTADO EN TABLAS) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
     tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Gestión"])
@@ -174,9 +174,8 @@ elif opcion == "Órdenes de Compra":
                 nombre_oc = c_oc1.text_input("Nombre OC / Referencia")
                 fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
                 emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
-                dolar = c_oc2.number_input("Dólar Pautado", value=1000.0)
+                dolar_pautado = c_oc2.number_input("Dólar Pautado", value=1000.0)
                 
-                # --- NUEVOS CAMPOS SOLICITADOS ---
                 tipo_fact = st.radio("Tipo de Facturación", ["En Blanco", "En Negro"], horizontal=True)
                 detalle_extra_oc = st.text_area("Detalle Extra de la Orden")
             
@@ -207,10 +206,11 @@ elif opcion == "Órdenes de Compra":
                         "ID": oc_id, 
                         "Empresa": emp_oc, 
                         "Monto": total_usd, 
+                        "Dólar": dolar_pautado,         # <--- Se guarda el valor del dólar
                         "Fecha": fecha_oc, 
                         "Referencia": nombre_oc,
-                        "Facturación": tipo_fact,       # Se guarda el nuevo campo
-                        "Detalle Extra": detalle_extra_oc # Se guarda el nuevo campo
+                        "Facturación": tipo_fact,
+                        "Detalle Extra": detalle_extra_oc
                     })
                     st.session_state.db_items_oc_actual = []
                     st.success(f"¡{oc_id} guardada exitosamente!")
@@ -237,28 +237,28 @@ elif opcion == "Órdenes de Compra":
 
                 # --- BOTONES DE DESCARGA ---
                 if not df_f.empty:
-                    st.write("### ⬇️ Descargar")
+                    st.write("### ⬇️ Descargar Selección")
                     d_col1, d_col2 = st.columns(2)
                     
-                    # Excel
+                    # 1. Excel
                     csv = df_f.to_csv(index=False).encode('utf-8')
                     d_col1.download_button("📥 EXCEL", csv, f"OC_{emp_busc}.csv", use_container_width=True)
                     
-                    # PDF (HTML prolijo para guardar como PDF)
-                    # Incluimos los nuevos campos en el reporte para que se vean al imprimir
+                    # 2. PDF (Estructura con Dólar incluido)
                     html = f"""
                     <div style='font-family: Arial;'>
-                        <h2>Reporte OC: {emp_busc}</h2>
-                        <p>Fecha de reporte: {datetime.now().date()}</p>
+                        <h2>Reporte de Órdenes: {emp_busc}</h2>
                         {df_f.to_html(index=False)}
                         <br>
-                        <h3>Monto Total Filtrado: U$S {df_f['Monto'].sum():,.2f}</h3>
+                        <h3>Monto Total: U$S {df_f['Monto'].sum():,.2f}</h3>
                     </div>
                     """
                     d_col2.download_button("📄 PDF", html, f"OC_{emp_busc}.html", "text/html", use_container_width=True)
 
                 st.write("---")
-                st.dataframe(df_f, use_container_width=True)
+                # Definimos el orden de las columnas para que el Dólar aparezca visible
+                columnas_visor = ["ID", "Empresa", "Monto", "Dólar", "Fecha", "Referencia", "Facturación", "Detalle Extra"]
+                st.dataframe(df_f[columnas_visor], use_container_width=True)
 
                 # --- ELIMINAR ORDEN ---
                 with st.expander("🗑️ Eliminar una Orden"):
