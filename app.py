@@ -441,105 +441,103 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y COMPLETO) ---
+# --- MÓDULO HISTORIAL INTEGRAL (CONTACTO + BITÁCORA + OC + IMPRESIÓN) ---
 elif opcion == "Historial Empresas":
-    st.header("🏢 Informe Integral de Empresa")
+    st.header("🏢 Historial Integral de Empresa")
     
     if not st.session_state.db_contactos:
-        st.warning("No hay contactos registrados. Cargá uno primero.")
+        st.warning("No hay contactos registrados en la base de datos.")
     else:
-        # 1. Buscador Principal
+        # 1. Selector de Empresa (Esto dispara todo)
         lista_nombres = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
-        empresa_f = st.selectbox("🔍 Seleccioná una empresa para generar el reporte:", lista_nombres)
-
-        # 2. Obtener datos de Contacto
+        empresa_f = st.selectbox("🔍 Seleccioná la empresa para ver su historial completo:", lista_nombres)
+        
+        # Obtener el objeto de contacto
         c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
-        # 3. Filtrar Bitácora de forma segura
-        df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
-        df_bit_f = pd.DataFrame()
-        if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
-            df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f]
-            # Seleccionamos solo columnas existentes para evitar el KeyError
-            cols_bit = [col for col in ['Fecha', 'Gestion', 'Observaciones'] if col in df_bit_f.columns]
-            df_bit_f = df_bit_f[cols_bit]
+        if c:
+            # 2. Filtrar Datos Relacionados
+            # Bitácora
+            df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
+            df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f] if not df_bit_all.empty else pd.DataFrame()
+            
+            # Órdenes de Compra
+            df_oc_all = pd.DataFrame(st.session_state.db_oc)
+            df_oc_f = pd.DataFrame()
+            if not df_oc_all.empty:
+                temp_oc = df_oc_all[df_oc_all['Empresa'] == empresa_f]
+                # Reordenamos columnas para que Dólar esté a la izquierda de Monto
+                cols_prioridad = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
+                cols_listas = [col for col in cols_prioridad if col in temp_oc.columns]
+                df_oc_f = temp_oc[cols_listas]
 
-        # 4. Filtrar Órdenes de Compra (Dólar a la izquierda de Monto)
-        df_oc_all = pd.DataFrame(st.session_state.db_oc)
-        df_oc_f = pd.DataFrame()
-        if not df_oc_all.empty and 'Empresa' in df_oc_all.columns:
-            df_oc_f = df_oc_all[df_oc_all['Empresa'] == empresa_f]
-            # Ordenamos: Dólar antes que Monto
-            cols_oc_plan = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-            cols_oc_existentes = [col for col in cols_oc_plan if col in df_oc_f.columns]
-            df_oc_f = df_oc_f[cols_oc_existentes]
+            # ---------------------------------------------------------
+            # 3. VISUALIZACIÓN EN PANTALLA (Lo que pediste ver al elegir)
+            # ---------------------------------------------------------
+            st.markdown(f"## 📋 Reporte: {empresa_f}")
+            
+            # Subsección A: Contacto
+            with st.container():
+                st.subheader("📞 Información de Contacto")
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    st.write(f"**Actividad:** {c['Actividad']}")
+                    st.write(f"**Ubicación:** {c['Ciudad']}, {c['País']}")
+                    st.write(f"**Web:** {c.get('Web', 'N/A')}")
+                with col_c2:
+                    st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')} / {c.get('T3','')}")
+                    st.write(f"**Mails:** {c['M1']} / {c.get('M2','')} / {c.get('M3','')}")
+                    st.write(f"**Extra:** {c.get('Extra', 'N/A')}")
 
-        # --- CONSTRUCCIÓN DEL DOCUMENTO HTML ---
-        html_bitacora = df_bit_f.to_html(index=False) if not df_bit_f.empty else "<p><i>No hay registros en bitácora.</i></p>"
-        html_ordenes = df_oc_f.to_html(index=False) if not df_oc_f.empty else "<p><i>No hay órdenes de compra registradas.</i></p>"
+            # Subsección B: Bitácora
+            st.write("---")
+            st.subheader("📝 Gestiones Realizadas (Bitácora)")
+            if not df_bit_f.empty:
+                st.dataframe(df_bit_f[["Fecha", "Gestion", "Observaciones"]], use_container_width=True)
+            else:
+                st.info("No hay registros en la bitácora para esta empresa.")
 
-        html_final = f"""
-        <html>
-        <head>
-            <style>
-                body {{ font-family: 'Helvetica', Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6; }}
-                .header {{ border-bottom: 3px solid #1f77b4; padding-bottom: 10px; margin-bottom: 20px; }}
-                h1 {{ color: #1f77b4; margin: 0; }}
-                h3 {{ background-color: #f4f4f4; padding: 8px; color: #1f77b4; border-left: 5px solid #1f77b4; margin-top: 25px; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }}
-                th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
-                th {{ background-color: #f8f9fa; color: #333; }}
-                .contacto-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
-                .footer {{ margin-top: 30px; text-align: right; font-weight: bold; font-size: 16px; border-top: 2px solid #eee; padding-top: 10px; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>INFORME INTEGRAL DE GESTIÓN</h1>
-                <p><b>Empresa:</b> {empresa_f} | <b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
-            </div>
-
-            <h3>1. Información del Contacto</h3>
-            <div class="contacto-grid">
-                <div>
-                    <p><b>Actividad:</b> {c['Actividad']}<br>
-                    <b>ID Sistema:</b> {c['N°']}<br>
-                    <b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
-                </div>
-                <div>
-                    <p><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} / {c.get('T3','')}<br>
-                    <b>Mails:</b> {c['M1']} / {c.get('M2','')} / {c.get('M3','')}<br>
-                    <b>Web:</b> {c.get('Web','N/A')}</p>
-                </div>
-            </div>
-            <p><b>Observaciones Extra:</b> {c.get('Extra','N/A')}</p>
-
-            <h3>2. Historial de Bitácora</h3>
-            {html_bitacora}
-
-            <h3>3. Detalle de Órdenes de Compra</h3>
-            {html_ordenes}
-
-            <div class="footer">
-                Total Facturado Acumulado: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}
-            </div>
-        </body>
-        </html>
-        """
-
-        # --- BOTONES DE ACCIÓN ---
-        st.write("---")
-        st.download_button(
-            label="📥 DESCARGAR INFORME COMPLETO (.HTML)",
-            data=html_final,
-            file_name=f"Reporte_{empresa_f}.html",
-            mime="text/html",
-            use_container_width=True,
-            type="primary"
-        )
-
-        # Vista rápida en pantalla para control
-        with st.expander("👁️ Previsualizar datos en pantalla"):
-            st.write(f"**Empresa:** {c['Empresa']} | **Ubicación:** {c['Ciudad']}")
+            # Subsección C: Órdenes de Compra
+            st.write("---")
+            st.subheader("🛒 Historial de Órdenes de Compra")
             if not df_oc_f.empty:
                 st.dataframe(df_oc_f, use_container_width=True)
+                total_usd = df_oc_f['Monto'].sum()
+                st.metric(f"Total Facturado a {empresa_f}", f"U$S {total_usd:,.2f}")
+            else:
+                st.info("No hay órdenes de compra registradas para esta empresa.")
+
+            # ---------------------------------------------------------
+            # 4. BOTÓN DE IMPRESIÓN GLOBAL (Unifica todo en un HTML/PDF)
+            # ---------------------------------------------------------
+            st.write("---")
+            
+            # Preparamos el contenido HTML para el archivo de descarga
+            html_content = f"""
+            <div style="font-family: Arial; padding: 20px; border: 2px solid #1f77b4; border-radius: 10px;">
+                <h1 style="text-align: center; color: #1f77b4;">INFORME GLOBAL DE GESTIÓN</h1>
+                <p style="text-align: center;"><b>Empresa:</b> {empresa_f} | <b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
+                <hr>
+                <h3>1. DATOS DE CONTACTO</h3>
+                <p><b>Actividad:</b> {c['Actividad']} | <b>Ubicación:</b> {c['Ciudad']}, {c['País']}</p>
+                <p><b>Contacto:</b> {c['T1']} / {c['M1']}</p>
+                <p><b>Notas:</b> {c.get('Extra', 'N/A')}</p>
+                
+                <h3>2. BITÁCORA</h3>
+                {df_bit_f.to_html(index=False) if not df_bit_f.empty else '<p>Sin registros.</p>'}
+                
+                <h3>3. ÓRDENES DE COMPRA</h3>
+                {df_oc_f.to_html(index=False) if not df_oc_f.empty else '<p>Sin registros.</p>'}
+                
+                <h3 style="text-align: right; color: #1f77b4;">MONTO TOTAL: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}</h3>
+            </div>
+            """
+            
+            st.download_button(
+                label="📥 DESCARGAR INFORME GLOBAL (.HTML / IMPRIMIBLE)",
+                data=html_content,
+                file_name=f"Informe_Global_{empresa_f}.html",
+                mime="text/html",
+                use_container_width=True,
+                type="primary"
+            )
