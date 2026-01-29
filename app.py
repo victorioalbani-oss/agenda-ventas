@@ -14,23 +14,6 @@ for key in ['contactos', 'productos', 'bitacora', 'oc', 'items_oc_actual']:
 st.sidebar.title("Menú Principal")
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
 
-# --- MÓDULO BITÁCORA (ESTANDARIZADO) ---
-elif opcion == "Bitácora":
-    st.header("📝 Bitácora")
-    b1, b2 = st.tabs(["➕ Agregar", "📋 Historial"])
-    
-    with b1:
-        if st.session_state.db_contactos:
-            with st.form("form_bit", clear_on_submit=True):
-                emp_b = st.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
-                fec_b = st.date_input("Fecha", datetime.now())
-                det_b = st.text_area("Detalle")
-                if st.form_submit_button("Cargar"):
-                    st.session_state.db_bitacora.append({
-                        "Fecha": fec_b, "Empresa": emp_b, "Gestion": det_b
-                    })
-                    st.rerun()
-
 # --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
     st.header("📦 Gestión de Artículos")
