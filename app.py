@@ -340,8 +340,7 @@ elif opcion == "Bitácora":
         else:
             st.info("No hay registros todavía.")
 
-
-# --- MÓDULO COBROS (REEMPLAZO COMPLETO) ---
+# --- MÓDULO COBROS (ACTUALIZADO CON DÓLAR A LA IZQUIERDA) ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
     
@@ -364,12 +363,13 @@ elif opcion == "Cobros":
             # Cargar datos actuales si existen
             info_actual = st.session_state.db_cobros.get(oc_id, {
                 "Estado": "En Tiempo", 
-                "Fecha": datetime.now(), 
+                "Fecha": datetime.now().date(), 
                 "Notas": ""
             })
 
             st.markdown(f"### Gestión: {oc_id}")
-            st.write(f"**Empresa:** {datos_oc['Empresa']} | **Monto:** U$S {datos_oc['Monto']:,.2f}")
+            # Mostramos el dólar pautado también en el resumen de arriba
+            st.write(f"**Empresa:** {datos_oc['Empresa']} | **Dólar Pautado:** {datos_oc.get('Dólar', 0)} | **Monto:** U$S {datos_oc['Monto']:,.2f}")
 
             with st.form(f"form_cobro_{oc_id}"):
                 c1, c2 = st.columns(2)
@@ -387,6 +387,7 @@ elif opcion == "Cobros":
                         "Estado": nuevo_estado,
                         "Fecha": nueva_fecha,
                         "Notas": nuevas_notas,
+                        "Dólar": datos_oc.get('Dólar', 0), # Guardamos el dólar en el registro de cobro
                         "Monto": datos_oc['Monto'],
                         "Empresa": datos_oc['Empresa']
                     }
@@ -396,19 +397,21 @@ elif opcion == "Cobros":
                 if eliminar:
                     if oc_id in st.session_state.db_cobros:
                         del st.session_state.db_cobros[oc_id]
-                        st.warning(f"Se eliminó el cobro de {oc_id}.")
+                        st.warning(f"Se eliminó el registro de cobro de {oc_id}.")
                         st.rerun()
 
             st.write("---")
             st.subheader("📋 Planilla General de Cobranzas")
             if st.session_state.db_cobros:
                 df_resumen = pd.DataFrame(list(st.session_state.db_cobros.values()))
-                st.dataframe(df_resumen[["Empresa", "Monto", "Estado", "Fecha"]], use_container_width=True)
+                # Reordenamos para que Dólar esté a la izquierda de Monto
+                cols_resumen = ["Empresa", "Dólar", "Monto", "Estado", "Fecha"]
+                # Solo mostramos las columnas que existen para evitar errores
+                st.dataframe(df_resumen[[c for c in cols_resumen if c in df_resumen.columns]], use_container_width=True)
 
         with tab_mensual:
             st.subheader("📅 Cobros por Mes")
             if st.session_state.db_cobros:
-                # Traducción de meses
                 meses_es = {
                     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
                     7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
@@ -418,12 +421,13 @@ elif opcion == "Cobros":
                 for k, v in st.session_state.db_cobros.items():
                     f = v['Fecha']
                     data_m.append({
-                        "Fecha_Sort": f, # Para ordenar
-                        "Mes_Anio": f"{meses_es[f.month]} {f.year}", # EL FORMATO QUE PEDISTE
+                        "Fecha_Sort": f,
+                        "Mes_Anio": f"{meses_es[f.month]} {f.year}",
+                        "OC": k,
                         "Empresa": v['Empresa'],
+                        "Dólar": v.get('Dólar', 0), # Traemos el dólar
                         "Monto": v['Monto'],
-                        "Estado": v['Estado'],
-                        "OC": k
+                        "Estado": v['Estado']
                     })
                 
                 df_m = pd.DataFrame(data_m).sort_values("Fecha_Sort")
@@ -432,7 +436,8 @@ elif opcion == "Cobros":
                     df_mes = df_m[df_m["Mes_Anio"] == etiqueta]
                     total_mes = df_mes["Monto"].sum()
                     with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {total_mes:,.2f}"):
-                        st.table(df_mes[["OC", "Empresa", "Monto", "Estado"]])
+                        # En la tabla del expander también ponemos el Dólar a la izquierda de Monto
+                        st.table(df_mes[["OC", "Empresa", "Dólar", "Monto", "Estado"]])
             else:
                 st.info("No hay datos de cobros.")
 
