@@ -160,7 +160,7 @@ elif opcion == "Contactos":
     with t_vis: render_lista("Clientes por Visitar", "list_visitar")
     with t_otr: render_lista("Clientes de Otro", "list_otros")
 
-# --- MÓDULO ÓRDENES DE COMPRA (CON DÓLAR PAUTADO EN TABLAS) ---
+# --- MÓDULO ÓRDENES DE COMPRA (AJUSTE DÓLAR PAUTADO) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
     tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Gestión"])
@@ -174,7 +174,8 @@ elif opcion == "Órdenes de Compra":
                 nombre_oc = c_oc1.text_input("Nombre OC / Referencia")
                 fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
                 emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
-                dolar_pautado = c_oc2.number_input("Dólar Pautado", value=1000.0)
+                # Usamos la variable 'dolar' que ya tenías
+                dolar = c_oc2.number_input("Dólar Pautado", value=1000.0) 
                 
                 tipo_fact = st.radio("Tipo de Facturación", ["En Blanco", "En Negro"], horizontal=True)
                 detalle_extra_oc = st.text_area("Detalle Extra de la Orden")
@@ -206,7 +207,7 @@ elif opcion == "Órdenes de Compra":
                         "ID": oc_id, 
                         "Empresa": emp_oc, 
                         "Monto": total_usd, 
-                        "Dólar": dolar_pautado,         # <--- Se guarda el valor del dólar
+                        "Dólar": dolar, # <--- AGREGADO AQUÍ
                         "Fecha": fecha_oc, 
                         "Referencia": nombre_oc,
                         "Facturación": tipo_fact,
@@ -237,17 +238,14 @@ elif opcion == "Órdenes de Compra":
 
                 # --- BOTONES DE DESCARGA ---
                 if not df_f.empty:
-                    st.write("### ⬇️ Descargar Selección")
+                    st.write("### ⬇️ Descargar")
                     d_col1, d_col2 = st.columns(2)
-                    
-                    # 1. Excel
                     csv = df_f.to_csv(index=False).encode('utf-8')
                     d_col1.download_button("📥 EXCEL", csv, f"OC_{emp_busc}.csv", use_container_width=True)
                     
-                    # 2. PDF (Estructura con Dólar incluido)
                     html = f"""
                     <div style='font-family: Arial;'>
-                        <h2>Reporte de Órdenes: {emp_busc}</h2>
+                        <h2>Reporte OC: {emp_busc}</h2>
                         {df_f.to_html(index=False)}
                         <br>
                         <h3>Monto Total: U$S {df_f['Monto'].sum():,.2f}</h3>
@@ -256,11 +254,9 @@ elif opcion == "Órdenes de Compra":
                     d_col2.download_button("📄 PDF", html, f"OC_{emp_busc}.html", "text/html", use_container_width=True)
 
                 st.write("---")
-                # Definimos el orden de las columnas para que el Dólar aparezca visible
-                columnas_visor = ["ID", "Empresa", "Monto", "Dólar", "Fecha", "Referencia", "Facturación", "Detalle Extra"]
-                st.dataframe(df_f[columnas_visor], use_container_width=True)
+                # La tabla ahora incluirá automáticamente la columna 'Dólar' porque está en el DataFrame
+                st.dataframe(df_f, use_container_width=True)
 
-                # --- ELIMINAR ORDEN ---
                 with st.expander("🗑️ Eliminar una Orden"):
                     id_a_borrar = st.selectbox("Elegí el ID para borrar", df_f["ID"].tolist() if not df_f.empty else ["Ninguno"])
                     if st.button("Confirmar Borrado"):
