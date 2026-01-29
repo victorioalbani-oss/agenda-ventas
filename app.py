@@ -109,13 +109,14 @@ elif opcion == "Contactos":
             
             if st.form_submit_button("Guardar Contacto"):
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
-                st.session_state.db_contactos.append({
+                nuevo_contacto = {
                     "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
-                })
+                }
+                st.session_state.db_contactos.append(nuevo_contacto)
                 
-                # --- ESTA ES LA LÍNEA 119 CORRECTA (alineada con el resto) ---
+                # --- ESTO DEBE IR AQUÍ DENTRO ---
                 sincronizar("contactos", st.session_state.db_contactos)
                 
                 st.success(f"Contacto {cid} guardado.")
