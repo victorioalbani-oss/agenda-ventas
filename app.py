@@ -1,18 +1,66 @@
 import streamlit as st
 import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-# Configuración de página para Celular y PC
+# Configuración de página
 st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
 
-# --- INICIALIZACIÓN DE BASES DE DATOS EN MEMORIA ---
-for key in ['contactos', 'productos', 'bitacora', 'oc', 'items_oc_actual']:
-    if f'db_{key}' not in st.session_state:
-        st.session_state[f'db_{key}'] = []
+# --- CONEXIÓN A GOOGLE SHEETS ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- NAVEGACIÓN LATERAL ---
+def cargar_datos_nube():
+    try:
+        # Leemos cada pestaña de tu Google Sheets
+        st.session_state.db_contactos = conn.read(worksheet="contactos").to_dict('records')
+        st.session_state.db_productos = conn.read(worksheet="productos").to_dict('records')
+        st.session_state.db_bitacora = conn.read(worksheet="bitacora").to_dict('records')
+        st.session_state.db_oc = conn.read(worksheet="oc").to_dict('records')
+    except:
+        # Si la planilla está vacía, inicializamos las listas vacías
+        st.session_state.db_contactos = []
+        st.session_state.db_productos = []
+        st.session_state.db_bitacora = []
+        st.session_state.db_oc = []
+
+def sincronizar(pestaña, datos):
+    # Esta función manda los datos actualizados a Google Sheets
+    df = pd.DataFrame(datos)
+    conn.update(worksheet=pestaña, data=df)
+    st.toast(f"✅ Sincronizado en la nube: {pestaña}")
+
+# Inicialización al abrir la app
+if 'db_contactos' not in st.session_state:
+    cargar_datos_nube()
+
+if 'db_items_oc_actual' not in st.session_state:
+    st.session_state.db_items_oc_actual = []
+
+# --- NAVEGACIÓN ---
 st.sidebar.title("Menú Principal")
+if st.sidebar.button("🔄 Recargar desde Nube"):
+    cargar_datos_nube()
+    st.rerun()
+
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
+
+
+
+
+#import streamlit as st
+#import pandas as pd
+#from datetime import datetime
+
+# Configuración de página para Celular y PC
+#st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
+
+# --- INICIALIZACIÓN DE BASES DE DATOS EN MEMORIA ---
+#for key in ['contactos', 'productos', 'bitacora', 'oc', 'items_oc_actual']:
+ #   if f'db_{key}' not in st.session_state:
+  #      st.session_state[f'db_{key}'] = []
+#--- NAVEGACIÓN LATERAL ---
+#st.sidebar.title("Menú Principal")
+#opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
 
 # --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
