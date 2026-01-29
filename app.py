@@ -44,18 +44,17 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (RESTAURADO + ESTADOS INDEPENDIENTES) ---
+# --- MÓDULO CONTACTOS (CON FUNCIÓN DE EDICIÓN) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
-    # Inicializamos las listas de seguimiento si no existen para que no den error
     if "list_activos" not in st.session_state: st.session_state.list_activos = []
     if "list_interesados" not in st.session_state: st.session_state.list_interesados = []
     if "list_visitar" not in st.session_state: st.session_state.list_visitar = []
     if "list_otros" not in st.session_state: st.session_state.list_otros = []
 
     t1, t2, t3, t_act, t_int, t_vis, t_otr = st.tabs([
-        "Agregar Contacto", "Lista de Contactos", "Buscar/Editar", 
+        "Agregar Contacto", "Lista de Contactos", "🔍 Buscar y Editar", 
         "✅ Clientes Activos", "⭐ Interesados", "📍 Por Visitar", "👤 Clientes de Otro"
     ])
     
@@ -82,83 +81,71 @@ elif opcion == "Contactos":
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
                 })
-                st.success(f"Contacto {cid} guardado y campos limpios.")
+                st.success(f"Contacto {cid} guardado.")
+                st.rerun()
 
     with t2:
-        st.subheader("📋 Lista de Empresas Registradas")
         if st.session_state.db_contactos:
-            df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            st.dataframe(df_contactos[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
-        else:
-            st.info("No hay contactos en la lista.")
+            st.dataframe(pd.DataFrame(st.session_state.db_contactos)[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
+        else: st.info("No hay contactos.")
 
     with t3:
-        st.subheader("🔍 Buscador de Detalle")
         if st.session_state.db_contactos:
             nombres = [c['Empresa'] for c in st.session_state.db_contactos]
-            busqueda = st.selectbox("Seleccioná una empresa", nombres)
-            
-            # Buscamos los datos del seleccionado
-            c = next(item for item in st.session_state.db_contactos if item['Empresa'] == busqueda)
-            
-            # --- DISEÑO MEJORADO DEL DETALLE ---
-            st.markdown(f"### {c['Empresa']} ({c['N°']})")
-            
-            # BOTONES PARA ASIGNAR ESTADOS (Independientes)
-            st.write("**Asignar a lista de seguimiento:**")
-            btn1, btn2, btn3, btn4 = st.columns(4)
-            if btn1.button("✅ Activo", key="btn_act"):
-                if c['Empresa'] not in st.session_state.list_activos: st.session_state.list_activos.append(c['Empresa'])
-                st.toast("Agregado a Activos")
-            if btn2.button("⭐ Interesado", key="btn_int"):
-                if c['Empresa'] not in st.session_state.list_interesados: st.session_state.list_interesados.append(c['Empresa'])
-                st.toast("Agregado a Interesados")
-            if btn3.button("📍 Por Visitar", key="btn_vis"):
-                if c['Empresa'] not in st.session_state.list_visitar: st.session_state.list_visitar.append(c['Empresa'])
-                st.toast("Agregado a Por Visitar")
-            if btn4.button("👤 De Otro", key="btn_otr"):
-                if c['Empresa'] not in st.session_state.list_otros: st.session_state.list_otros.append(c['Empresa'])
-                st.toast("Agregado a De Otros")
+            busqueda = st.selectbox("Seleccioná empresa para ver o EDITAR:", nombres)
+            # Buscamos el índice para poder modificar el original
+            idx_c = next((i for i, item in enumerate(st.session_state.db_contactos) if item['Empresa'] == busqueda), None)
+            c = st.session_state.db_contactos[idx_c]
 
+            with st.expander("📝 EDITAR DATOS DE ESTA EMPRESA"):
+                with st.form(f"edit_form_{c['N°']}"):
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        new_emp = st.text_input("Empresa", value=c['Empresa'])
+                        new_act = st.text_input("Actividad", value=c['Actividad'])
+                        new_pais = st.text_input("País", value=c['País'])
+                        new_prov = st.text_input("Provincia", value=c.get('Provincia',''))
+                        new_ciud = st.text_input("Ciudad", value=c['Ciudad'])
+                    with col_e2:
+                        new_tel1 = st.text_input("Tel 1", value=c['T1'])
+                        new_mail1 = st.text_input("Mail 1", value=c['M1'])
+                        new_web = st.text_input("Web", value=c.get('Web',''))
+                        new_extra = st.text_area("Extra", value=c.get('Extra',''))
+                    
+                    if st.form_submit_button("💾 GUARDAR CAMBIOS"):
+                        st.session_state.db_contactos[idx_c].update({
+                            "Empresa": new_emp, "Actividad": new_act, "País": new_pais,
+                            "Provincia": new_prov, "Ciudad": new_ciud, "T1": new_tel1,
+                            "M1": new_mail1, "Web": new_web, "Extra": new_extra
+                        })
+                        st.success("Cambios guardados.")
+                        st.rerun()
+
+            # BOTONES DE SEGUIMIENTO
             st.write("---")
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown("**📍 Ubicación**")
-                st.write(f"🏠 {c['Ciudad']}, {c.get('Provincia', '')} ({c['País']})")
-                if c['Maps']: st.link_button("🌐 Ver en Google Maps", c['Maps'])
-                st.markdown("**🛠 Actividad**")
-                st.write(f"💼 {c['Actividad']}")
-            with col_b:
-                st.markdown("**📞 Contacto**")
-                st.write(f"📱 {c['T1']} / {c['T2']} / {c['T3']}")
-                st.write(f"📧 {c['M1']} / {c['M2']} / {c['M3']}")
-                if c['Web']: st.write(f"💻 [{c['Web']}]({c['Web']})")
+            c_b1, c_b2, c_b3, c_b4 = st.columns(4)
+            if c_b1.button("✅ Activo"): st.session_state.list_activos.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_activos else None
+            if c_b2.button("⭐ Interesado"): st.session_state.list_interesados.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_interesados else None
+            if c_b3.button("📍 Visitar"): st.session_state.list_visitar.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_visitar else None
+            if c_b4.button("👤 De Otro"): st.session_state.list_otros.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_otros else None
 
-            st.markdown("**📝 Datos Extra**")
-            st.info(c['Extra'] if c['Extra'] else "Sin datos adicionales.")
-        else:
-            st.write("Cargá una empresa para habilitar la búsqueda.")
-
-    # --- LÓGICA DE PESTAÑAS DE SEGUIMIENTO ---
+    # LÓGICA DE LISTAS (PESTAÑAS)
     def render_lista(titulo, lista_key):
         st.subheader(titulo)
-        lista_actual = st.session_state[lista_key]
-        if lista_actual:
-            for emp_nombre in lista_actual:
-                with st.expander(f"🏢 {emp_nombre}"):
-                    datos = next((item for item in st.session_state.db_contactos if item['Empresa'] == emp_nombre), None)
-                    if datos:
-                        st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
-                    if st.button(f"❌ Quitar de la lista", key=f"del_{lista_key}_{emp_nombre}"):
-                        st.session_state[lista_key].remove(emp_nombre)
-                        st.rerun()
-        else:
-            st.info(f"No hay empresas en {titulo}.")
+        lista = st.session_state[lista_key]
+        if lista:
+            for emp in lista:
+                col_x1, col_x2 = st.columns([4,1])
+                col_x1.write(f"🏢 **{emp}**")
+                if col_x2.button("❌", key=f"del_{lista_key}_{emp}"):
+                    st.session_state[lista_key].remove(emp)
+                    st.rerun()
+        else: st.info("Lista vacía.")
 
-    with t_act: render_lista("Clientes Activos", "list_activos")
-    with t_int: render_lista("Clientes Interesados", "list_interesados")
-    with t_vis: render_lista("Clientes por Visitar", "list_visitar")
-    with t_otr: render_lista("Clientes de Otro", "list_otros")
+    with t_act: render_lista("Activos", "list_activos")
+    with t_int: render_lista("Interesados", "list_interesados")
+    with t_vis: render_lista("Por Visitar", "list_visitar")
+    with t_otr: render_lista("De Otros", "list_otros")
 
 # --- MÓDULO ÓRDENES DE COMPRA (DÓLAR A LA IZQUIERDA DEL MONTO) ---
 elif opcion == "Órdenes de Compra":
@@ -441,96 +428,75 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y AUTOMÁTICO) ---
+# --- MÓDULO HISTORIAL INTEGRAL (UNIFICADO Y SIN ERRORES) ---
 elif opcion == "Historial Empresas":
-    st.header("🏢 Informe Integral de Empresa")
+    st.header("🏢 Historial Integral por Empresa")
     
     if not st.session_state.db_contactos:
-        st.warning("No hay contactos cargados.")
+        st.warning("No hay contactos registrados.")
     else:
-        # 1. Buscador Principal
         lista_nombres = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
-        empresa_f = st.selectbox("🔍 Seleccioná una empresa para generar el reporte:", lista_nombres)
+        empresa_f = st.selectbox("🔍 Seleccioná la empresa para ver TODO su historial:", lista_nombres)
         c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
         if c:
-            # 2. Filtrar Bitácora de forma segura (Detecta nombres de columnas automáticamente)
+            # Filtrar Datos con seguridad para evitar KeyError
             df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
-            df_bit_f = pd.DataFrame()
-            if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
-                df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f]
+            df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f] if not df_bit_all.empty and 'Empresa' in df_bit_all.columns else pd.DataFrame()
 
-            # 3. Filtrar Órdenes de Compra (Dólar a la izquierda de Monto)
             df_oc_all = pd.DataFrame(st.session_state.db_oc)
             df_oc_f = pd.DataFrame()
             if not df_oc_all.empty and 'Empresa' in df_oc_all.columns:
                 temp_oc = df_oc_all[df_oc_all['Empresa'] == empresa_f]
-                # Reordenamos columnas deseadas si existen
-                cols_prioridad = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-                cols_reales = [col for col in cols_prioridad if col in temp_oc.columns]
-                # Agregamos cualquier otra columna que no esté en la lista de prioridad
-                cols_extra = [col for col in temp_oc.columns if col not in cols_reales]
-                df_oc_f = temp_oc[cols_reales + cols_extra]
+                # Reordenamos columnas (Dólar a la izquierda de Monto)
+                c_oc = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
+                cols_validas = [col for col in c_oc if col in temp_oc.columns]
+                df_oc_f = temp_oc[cols_validas]
 
             # --- MOSTRAR TODO EN PANTALLA ---
-            st.markdown(f"## 📋 Reporte Integral: {empresa_f}")
-            
+            st.write("---")
             st.subheader("📞 Información de Contacto")
             col_inf1, col_inf2 = st.columns(2)
             with col_inf1:
-                st.write(f"**Actividad:** {c['Actividad']}")
-                st.write(f"**Ubicación:** {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}")
-                st.write(f"**Web:** {c.get('Web', 'N/A')}")
+                st.write(f"**Empresa:** {c['Empresa']}")
+                st.write(f"**Actividad:** {c['Actividad']} | **Ubicación:** {c['Ciudad']}, {c['País']}")
             with col_inf2:
-                st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')} / {c.get('T3','')}")
-                st.write(f"**Mails:** {c['M1']} / {c.get('M2','')} / {c.get('M3','')}")
-                st.write(f"**Observaciones:** {c.get('Extra', 'N/A')}")
+                st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')}")
+                st.write(f"**Mails:** {c['M1']} / {c.get('M2','')}")
 
             st.write("---")
-            st.subheader("📝 Historial de Bitácora")
-            if not df_bit_f.empty:
-                st.dataframe(df_bit_f, use_container_width=True)
-            else:
-                st.info("No se encontraron registros en la bitácora para esta empresa.")
+            st.subheader("📝 Bitácora de Gestiones")
+            if not df_bit_f.empty: st.dataframe(df_bit_f, use_container_width=True)
+            else: st.info("No hay gestiones en la bitácora.")
 
             st.write("---")
-            st.subheader("🛒 Órdenes de Compra")
+            st.subheader("🛒 Historial de Órdenes de Compra")
             if not df_oc_f.empty:
                 st.dataframe(df_oc_f, use_container_width=True)
                 st.metric("Total Facturado", f"U$S {df_oc_f['Monto'].sum():,.2f}")
-            else:
-                st.info("No hay órdenes de compra registradas.")
+            else: st.info("No hay órdenes registradas.")
 
             # --- BOTÓN DE DESCARGA GLOBAL (.HTML) ---
             st.write("---")
             html_final = f"""
             <html>
             <body style="font-family: Arial; padding: 20px;">
-                <div style="border: 2px solid #1f77b4; padding: 20px; border-radius: 10px;">
-                    <h1 style="color: #1f77b4; text-align: center;">INFORME GLOBAL DE GESTIÓN</h1>
-                    <p style="text-align: center;"><b>Empresa:</b> {empresa_f} | <b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
+                <div style="border: 2px solid #1f77b4; padding: 15px; border-radius: 10px;">
+                    <h1 style="color: #1f77b4; text-align: center;">INFORME GLOBAL: {empresa_f}</h1>
                     <hr>
                     <h3>1. DATOS DE CONTACTO</h3>
                     <p><b>Actividad:</b> {c['Actividad']} | <b>Ubicación:</b> {c['Ciudad']} ({c['País']})</p>
                     <p><b>Contacto:</b> {c['T1']} / {c['M1']}</p>
-                    <p><b>Web:</b> {c.get('Web', 'N/A')}</p>
-                    <p><b>Notas:</b> {c.get('Extra', 'N/A')}</p>
+                    <p><b>Extra:</b> {c.get('Extra', 'N/A')}</p>
                     <hr>
-                    <h3>2. BITÁCORA DE GESTIONES</h3>
+                    <h3>2. BITÁCORA</h3>
                     {df_bit_f.to_html(index=False) if not df_bit_f.empty else '<p>Sin registros.</p>'}
                     <hr>
                     <h3>3. ÓRDENES DE COMPRA</h3>
                     {df_oc_f.to_html(index=False) if not df_oc_f.empty else '<p>Sin registros.</p>'}
-                    <h3 style="text-align: right; color: #1f77b4; margin-top: 20px;">TOTAL ACUMULADO: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}</h3>
+                    <h3 style="text-align: right;">TOTAL: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}</h3>
                 </div>
             </body>
             </html>
             """
-            st.download_button(
-                label="📥 DESCARGAR INFORME COMPLETO (.HTML)",
-                data=html_final,
-                file_name=f"Informe_{empresa_f}.html",
-                mime="text/html",
-                use_container_width=True,
-                type="primary"
-            )
+            st.download_button("📥 DESCARGAR REPORTE GLOBAL (.HTML)", data=html_final, file_name=f"Reporte_{empresa_f}.html", mime="text/html", use_container_width=True, type="primary")
