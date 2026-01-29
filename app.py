@@ -44,17 +44,18 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (CON EDICIÓN Y ACTUALIZACIÓN EN CASCADA) ---
+# --- MÓDULO CONTACTOS (CON EDICIÓN COMPLETA Y ACTUALIZACIÓN EN CASCADA) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
+    # Inicializamos las listas de seguimiento si no existen
     if "list_activos" not in st.session_state: st.session_state.list_activos = []
     if "list_interesados" not in st.session_state: st.session_state.list_interesados = []
     if "list_visitar" not in st.session_state: st.session_state.list_visitar = []
     if "list_otros" not in st.session_state: st.session_state.list_otros = []
 
     t1, t2, t3, t_act, t_int, t_vis, t_otr = st.tabs([
-        "Agregar Contacto", "Lista", "🔍 Editar", "✅ Activos", "⭐ Interesados", "📍 Visitar", "👤 Otros"
+        "Agregar Contacto", "Lista", "🔍 Editar Datos", "✅ Activos", "⭐ Interesados", "📍 Visitar", "👤 Otros"
     ])
     
     with t1:
@@ -66,48 +67,104 @@ elif opcion == "Contactos":
                 pais = st.text_input("País")
                 prov = st.text_input("Provincia")
                 ciudad = st.text_input("Ciudad")
-                maps = st.text_input("Google Maps")
+                maps = st.text_input("Dirección Google Maps")
             with col2:
-                web = st.text_input("Web")
-                tels = [st.text_input("Tel 1"), st.text_input("Tel 2"), st.text_input("Tel 3")]
-                mails = [st.text_input("Mail 1"), st.text_input("Mail 2"), st.text_input("Mail 3")]
-                extra = st.text_area("Notas")
+                web = st.text_input("Página Web")
+                tel1 = st.text_input("Teléfono 1")
+                tel2 = st.text_input("Teléfono 2")
+                tel3 = st.text_input("Teléfono 3")
+                mail1 = st.text_input("Mail 1")
+                mail2 = st.text_input("Mail 2")
+                mail3 = st.text_input("Mail 3")
+                extra = st.text_area("Dato Extra")
             
-            if st.form_submit_button("Guardar"):
+            if st.form_submit_button("Guardar Contacto"):
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
                 st.session_state.db_contactos.append({
-                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad, "Provincia": prov, 
-                    "Maps": maps, "Actividad": actividad, "Web": web, "T1": tels[0], "T2": tels[1], 
-                    "T3": tels[2], "M1": mails[0], "M2": mails[1], "M3": mails[2], "Extra": extra
+                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
+                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
+                    "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
                 })
-                st.success("Guardado.")
+                st.success(f"Contacto {cid} guardado.")
+                st.rerun()
+
+    with t2:
+        if st.session_state.db_contactos:
+            df_contactos = pd.DataFrame(st.session_state.db_contactos)
+            st.dataframe(df_contactos[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
+        else:
+            st.info("No hay contactos en la lista.")
 
     with t3:
         if st.session_state.db_contactos:
             nombres = [c['Empresa'] for c in st.session_state.db_contactos]
-            busc = st.selectbox("Seleccioná para EDITAR:", nombres)
+            busc = st.selectbox("Seleccioná la empresa que querés MODIFICAR:", nombres)
             idx = next(i for i, item in enumerate(st.session_state.db_contactos) if item['Empresa'] == busc)
             c = st.session_state.db_contactos[idx]
 
-            with st.form("edit_contacto"):
+            # FORMULARIO DE EDICIÓN
+            st.markdown(f"### Edición de: {c['Empresa']}")
+            with st.form("edit_contacto_form"):
+                nombre_viejo = c['Empresa'] # IMPORTANTE para la cascada
                 col_e1, col_e2 = st.columns(2)
-                nombre_viejo = c['Empresa']
-                new_nom = col_e1.text_input("Nombre Empresa", value=c['Empresa'])
-                new_act = col_e1.text_input("Actividad", value=c['Actividad'])
-                new_t1 = col_e2.text_input("Teléfono Principal", value=c['T1'])
-                new_m1 = col_e2.text_input("Mail Principal", value=c['M1'])
+                with col_e1:
+                    new_nom = st.text_input("Nombre Empresa", value=c['Empresa'])
+                    new_act = st.text_input("Actividad", value=c['Actividad'])
+                    new_pais = st.text_input("País", value=c['País'])
+                    new_ciudad = st.text_input("Ciudad", value=c['Ciudad'])
+                    new_maps = st.text_input("Maps", value=c.get('Maps',''))
+                with col_e2:
+                    new_tel1 = st.text_input("Teléfono 1", value=c['T1'])
+                    new_tel2 = st.text_input("Teléfono 2", value=c.get('T2',''))
+                    new_mail1 = st.text_input("Mail 1", value=c['M1'])
+                    new_web = st.text_input("Web", value=c.get('Web',''))
+                    new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
                 
-                if st.form_submit_button("💾 ACTUALIZAR TODO"):
-                    # 1. Actualizar Contacto
-                    st.session_state.db_contactos[idx].update({"Empresa": new_nom, "Actividad": new_act, "T1": new_t1, "M1": new_m1})
-                    # 2. Actualizar Bitácora (Cascada)
-                    for r in st.session_state.db_bitacora:
-                        if r['Empresa'] == nombre_viejo: r['Empresa'] = new_nom
-                    # 3. Actualizar OCs (Cascada)
-                    for o in st.session_state.db_oc:
-                        if o['Empresa'] == nombre_viejo: o['Empresa'] = new_nom
-                    st.success("Sincronización completa.")
+                if st.form_submit_button("💾 GUARDAR CAMBIOS Y ACTUALIZAR HISTORIAL"):
+                    # 1. Actualizar datos en la lista de contactos
+                    st.session_state.db_contactos[idx].update({
+                        "Empresa": new_nom, "Actividad": new_act, "País": new_pais,
+                        "Ciudad": new_ciudad, "Maps": new_maps, "T1": new_tel1,
+                        "T2": new_tel2, "M1": new_mail1, "Web": new_web, "Extra": new_extra
+                    })
+
+                    # 2. EFECTO CASCADA: Actualizar Bitácora si cambió el nombre
+                    if new_nom != nombre_viejo:
+                        for reg in st.session_state.db_bitacora:
+                            if reg['Empresa'] == nombre_viejo:
+                                reg['Empresa'] = new_nom
+                        
+                        # 3. EFECTO CASCADA: Actualizar Órdenes de Compra
+                        for oc in st.session_state.db_oc:
+                            if oc['Empresa'] == nombre_viejo:
+                                oc['Empresa'] = new_nom
+                    
+                    st.success("¡Información actualizada en todo el sistema!")
                     st.rerun()
+        else:
+            st.info("Cargá una empresa para editar.")
+
+    # --- LÓGICA DE PESTAÑAS DE SEGUIMIENTO (Clientes activos, interesados, etc.) ---
+    def render_lista_seguimiento(titulo, lista_key):
+        st.subheader(titulo)
+        lista = st.session_state[lista_key]
+        if lista:
+            for emp_nombre in lista:
+                with st.expander(f"🏢 {emp_nombre}"):
+                    # Buscamos los datos actuales (por si se editaron)
+                    datos = next((i for i in st.session_state.db_contactos if i['Empresa'] == emp_nombre), None)
+                    if datos:
+                        st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
+                    if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
+                        st.session_state[lista_key].remove(emp_nombre)
+                        st.rerun()
+        else:
+            st.info(f"No hay empresas en la lista de {titulo}.")
+
+    with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
+    with t_int: render_lista_seguimiento("Clientes Interesados", "list_interesados")
+    with t_vis: render_lista_seguimiento("Clientes por Visitar", "list_visitar")
+    with t_otr: render_lista_seguimiento("Clientes de Otro", "list_otros")
 
 # --- MÓDULO ÓRDENES DE COMPRA (DÓLAR A LA IZQUIERDA DEL MONTO) ---
 elif opcion == "Órdenes de Compra":
@@ -218,81 +275,6 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA (SINCRONIZADO CON CONTACTOS) ---
-elif opcion == "Bitácora":
-    st.header("📝 Bitácora de Actividad")
-    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
-    
-    with b1:
-        if not st.session_state.db_contactos:
-            st.warning("Debe cargar un contacto antes de usar la bitácora.")
-        else:
-            with st.form("form_bit", clear_on_submit=True):
-                # Usamos la lista de empresas actualizada de los contactos
-                nombres_emp = sorted([c['Empresa'] for c in st.session_state.db_contactos])
-                emp_b = st.selectbox("Asociar a Empresa", nombres_emp)
-                fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-                cont = st.text_area("Detalle de la actividad")
-                
-                if st.form_submit_button("Cargar Bitácora"):
-                    st.session_state.db_bitacora.append({
-                        "Fecha": fecha_realizada, # Nombre de columna estándar
-                        "Empresa": emp_b,
-                        "Gestion": cont # Nombre de columna estándar usado en Historial Integral
-                    })
-                    st.success(f"Registro para {emp_b} guardado.")
-                    st.rerun()
-
-    with b2:
-        st.subheader("🔎 Historial de Gestiones")
-        if st.session_state.db_bitacora:
-            df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            
-            # Aseguramos formato de fecha para el filtro
-            if "Fecha" in df_bit.columns:
-                df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
-            
-            c_f1, c_f2 = st.columns(2)
-            with c_f1:
-                # El filtro siempre toma los nombres actuales de la DB de contactos
-                empresas_en_bitacora = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_bitacora)
-            with c_f2:
-                rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
-
-            # --- Lógica de Filtros ---
-            df_filtrado = df_bit.copy()
-            if f_emp != "Todas":
-                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            
-            if len(rango_fechas) == 2:
-                f_inicio, f_fin = rango_fechas
-                if "Fecha" in df_filtrado.columns:
-                    df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= f_inicio) & (df_filtrado["Fecha"] <= f_fin)]
-
-            # Mostramos la tabla
-            st.dataframe(df_filtrado, use_container_width=True)
-            
-            st.write("---")
-            col_acc1, col_acc2 = st.columns(2)
-
-            with col_acc1:
-                if not df_filtrado.empty:
-                    csv = df_filtrado.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label=f"📥 Descargar datos de {f_emp}",
-                        data=csv,
-                        file_name=f"bitacora_{f_emp}.csv",
-                        mime="text/csv",
-                    )
-                
-            with col_acc2:
-                with st.expander("🗑️ Zona de Borrado"):
-                    if st.button("Eliminar último registro"):
-                        st.session_state.db_bitacora.pop()
-                        st.rerun()
-        else:
-            st.info("No hay datos de bitácora todavía.")
 
 # --- MÓDULO COBROS (ACTUALIZADO CON DÓLAR A LA IZQUIERDA) ---
 elif opcion == "Cobros":
