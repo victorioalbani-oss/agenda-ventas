@@ -144,23 +144,42 @@ elif opcion == "Contactos":
         else:
             st.info("Cargá una empresa para editar.")
 
-    # --- LÓGICA DE PESTAÑAS DE SEGUIMIENTO (Clientes activos, interesados, etc.) ---
+    # --- LÓGICA DE PESTAÑAS DE SEGUIMIENTO (CON AGREGAR/MODIFICAR) ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
+        
+        # 1. Buscador para agregar empresas a esta lista específica
+        if st.session_state.db_contactos:
+            nombres_totales = [c['Empresa'] for c in st.session_state.db_contactos]
+            col_add, col_btn = st.columns([3, 1])
+            with col_add:
+                emp_a_agregar = st.selectbox(f"Seleccionar empresa para {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
+            with col_btn:
+                st.write("##") # Espaciador
+                if st.button("➕ Añadir", key=f"btn_add_{lista_key}"):
+                    if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
+                        st.session_state[lista_key].append(emp_a_agregar)
+                        st.rerun()
+
+        st.write("---")
+        
+        # 2. Visualización y Gestión de la lista
         lista = st.session_state[lista_key]
         if lista:
             for emp_nombre in lista:
                 with st.expander(f"🏢 {emp_nombre}"):
-                    # Buscamos los datos actuales (por si se editaron)
                     datos = next((i for i in st.session_state.db_contactos if i['Empresa'] == emp_nombre), None)
                     if datos:
                         st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
+                    
+                    # Opción para quitar
                     if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         st.rerun()
         else:
             st.info(f"No hay empresas en la lista de {titulo}.")
 
+    # Estas son las llamadas que ya tenías, ahora con la función mejorada:
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
     with t_int: render_lista_seguimiento("Clientes Interesados", "list_interesados")
     with t_vis: render_lista_seguimiento("Clientes por Visitar", "list_visitar")
