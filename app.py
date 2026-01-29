@@ -362,14 +362,14 @@ elif opcion == "Bitácora":
         else:
             st.info("La bitácora está vacía. Agregá tu primera gestión arriba.")
 
-# --- MÓDULO COBROS (CON 5 PESTAÑAS: GESTIÓN, MENSUAL + ESTADOS) ---
+# --- MÓDULO COBROS (CON ID Y REFERENCIA EN PESTAÑAS DE ESTADO) ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
     
     if "db_cobros" not in st.session_state:
         st.session_state.db_cobros = {}
 
-    # Definimos las 5 pestañas solicitadas
+    # Definimos las 5 pestañas
     tab_gestion, tab_mensual, tab_cobrado, tab_tiempo, tab_deuda = st.tabs([
         "🔄 Actualizar Estado", 
         "📅 Proyección Mensual",
@@ -381,13 +381,14 @@ elif opcion == "Cobros":
     if not st.session_state.db_oc:
         st.warning("Primero creá una Orden de Compra en el módulo correspondiente.")
     else:
-        # PESTAÑA 1: GESTIÓN (Tu código original)
+        # PESTAÑA 1: GESTIÓN
         with tab_gestion:
             mapeo_oc = {f"{o['ID']} | {o['Empresa']}": o for o in st.session_state.db_oc}
             oc_seleccionada_key = st.selectbox("Seleccioná OC para modificar o eliminar:", list(mapeo_oc.keys()))
             
             datos_oc = mapeo_oc[oc_seleccionada_key]
             oc_id = datos_oc['ID']
+            oc_ref = datos_oc.get('Referencia', 'S/R') # Tomamos la referencia o nombre de la OC
 
             info_actual = st.session_state.db_cobros.get(oc_id, {
                 "Estado": "En Tiempo", 
@@ -395,7 +396,7 @@ elif opcion == "Cobros":
                 "Notas": ""
             })
 
-            st.markdown(f"### Gestión: {oc_id}")
+            st.markdown(f"### Gestión: {oc_id} - {oc_ref}")
             st.write(f"**Empresa:** {datos_oc['Empresa']} | **Dólar Pautado:** {datos_oc.get('Dólar', 0)} | **Monto:** U$S {datos_oc['Monto']:,.2f}")
 
             with st.form(f"form_cobro_{oc_id}"):
@@ -403,7 +404,6 @@ elif opcion == "Cobros":
                 nuevo_estado = c1.selectbox("Estado", ["En Tiempo", "Cobrado", "En Deuda"], 
                                           index=["En Tiempo", "Cobrado", "En Deuda"].index(info_actual.get("Estado", "En Tiempo")))
                 
-                # Asegurar formato fecha
                 fecha_val = info_actual["Fecha"]
                 if isinstance(fecha_val, str): fecha_val = datetime.strptime(fecha_val, '%Y-%m-%d').date()
                 
@@ -413,6 +413,8 @@ elif opcion == "Cobros":
                 col_btn1, col_btn2 = st.columns(2)
                 if col_btn1.form_submit_button("💾 ACTUALIZAR / COBRAR"):
                     st.session_state.db_cobros[oc_id] = {
+                        "OC_ID": oc_id,
+                        "Referencia": oc_ref,
                         "Estado": nuevo_estado,
                         "Fecha": nueva_fecha,
                         "Notas": nuevas_notas,
@@ -431,10 +433,10 @@ elif opcion == "Cobros":
             st.subheader("📋 Planilla General de Cobranzas")
             if st.session_state.db_cobros:
                 df_resumen = pd.DataFrame(list(st.session_state.db_cobros.values()))
-                cols_resumen = ["Empresa", "Dólar", "Monto", "Estado", "Fecha"]
+                cols_resumen = ["OC_ID", "Referencia", "Empresa", "Dólar", "Monto", "Estado", "Fecha"]
                 st.dataframe(df_resumen[[c for c in cols_resumen if c in df_resumen.columns]], use_container_width=True)
 
-        # PESTAÑA 2: MENSUAL (Tu código original)
+        # PESTAÑA 2: MENSUAL
         with tab_mensual:
             st.subheader("📅 Cobros por Mes")
             if st.session_state.db_cobros:
@@ -445,23 +447,24 @@ elif opcion == "Cobros":
                     data_m.append({
                         "Fecha_Sort": f,
                         "Mes_Anio": f"{meses_es[f.month]} {f.year}",
-                        "OC": k, "Empresa": v['Empresa'], "Dólar": v.get('Dólar', 0), "Monto": v['Monto'], "Estado": v['Estado']
+                        "OC": k, "Referencia": v.get('Referencia', ''), "Empresa": v['Empresa'], "Dólar": v.get('Dólar', 0), "Monto": v['Monto'], "Estado": v['Estado']
                     })
                 df_m = pd.DataFrame(data_m).sort_values("Fecha_Sort")
                 for etiqueta in df_m["Mes_Anio"].unique():
                     df_mes = df_m[df_m["Mes_Anio"] == etiqueta]
-                    total_mes = df_mes["Monto"].sum()
-                    with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {total_mes:,.2f}"):
-                        st.table(df_mes[["OC", "Empresa", "Dólar", "Monto", "Estado"]])
+                    with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {df_mes['Monto'].sum():,.2f}"):
+                        st.table(df_mes[["OC", "Referencia", "Empresa", "Dólar", "Monto", "Estado"]])
 
-        # --- LÓGICA COMPARTIDA PARA LAS 3 PESTAÑAS NUEVAS ---
+        # --- LÓGICA PARA LAS 3 PESTAÑAS NUEVAS ---
         def mostrar_tabla_por_estado(estado_nombre):
             if st.session_state.db_cobros:
                 df_all = pd.DataFrame(list(st.session_state.db_cobros.values()))
                 df_filt = df_all[df_all["Estado"] == estado_nombre]
                 if not df_filt.empty:
                     st.metric(f"Total en {estado_nombre}", f"U$S {df_filt['Monto'].sum():,.2f}")
-                    st.table(df_filt[["Empresa", "Dólar", "Monto", "Fecha"]])
+                    # Mostramos ID, Referencia, Empresa, Dólar y Monto
+                    cols_vista = ["OC_ID", "Referencia", "Empresa", "Dólar", "Monto", "Fecha"]
+                    st.table(df_filt[[c for c in cols_vista if c in df_filt.columns]])
                 else:
                     st.info(f"No hay registros con estado '{estado_nombre}'.")
 
