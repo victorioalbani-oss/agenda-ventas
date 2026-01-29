@@ -75,7 +75,7 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (VERSIÓN FINAL CORREGIDA) ---
+# --- MÓDULO CONTACTOS (VERSIÓN DEFINITIVA) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -114,13 +114,13 @@ elif opcion == "Contactos":
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                 }
-                # 1. Guardar en la memoria local (App)
+                # Guardamos en memoria
                 st.session_state.db_contactos.append(nuevo_contacto)
                 
-                # 2. Sincronizar con Google Sheets (Nube)
+                # Sincronizamos (ESTA LÍNEA SOLO SE EJECUTA SI PRESIONAS EL BOTÓN)
                 sincronizar("contactos", st.session_state.db_contactos)
                 
-                st.success(f"Contacto {cid} guardado correctamente.")
+                st.success(f"Contacto {cid} guardado.")
                 st.rerun()
 
     with t2:
@@ -155,55 +155,41 @@ elif opcion == "Contactos":
                     new_web = st.text_input("Web", value=c.get('Web',''))
                     new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
                 
-                if st.form_submit_button("💾 GUARDAR CAMBIOS Y ACTUALIZAR HISTORIAL"):
+                if st.form_submit_button("💾 GUARDAR CAMBIOS"):
                     st.session_state.db_contactos[idx].update({
                         "Empresa": new_nom, "Actividad": new_act, "País": new_pais,
                         "Ciudad": new_ciudad, "Maps": new_maps, "T1": new_tel1,
                         "T2": new_tel2, "M1": new_mail1, "M2": new_mail2,
                         "Web": new_web, "Extra": new_extra
                     })
-
-                    if new_nom != nombre_viejo:
-                        for reg in st.session_state.db_bitacora:
-                            if reg['Empresa'] == nombre_viejo: reg['Empresa'] = new_nom
-                        for oc in st.session_state.db_oc:
-                            if oc['Empresa'] == nombre_viejo: oc['Empresa'] = new_nom
                     
-                    # --- ACTUALIZAR EN GOOGLE SHEETS ---
                     sincronizar("contactos", st.session_state.db_contactos)
-
-                    st.success("¡Información actualizada en la nube!")
+                    st.success("¡Información actualizada!")
                     st.rerun()
-        else:
-            st.info("No hay contactos para editar.")
 
+    # --- LISTAS DE SEGUIMIENTO ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         if st.session_state.db_contactos:
             nombres_totales = [c['Empresa'] for c in st.session_state.db_contactos]
             col_add, col_btn = st.columns([3, 1])
             with col_add:
-                emp_a_agregar = st.selectbox(f"Seleccionar para {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
+                emp_a_agregar = st.selectbox(f"Añadir a {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
             with col_btn:
                 st.write("##")
-                if st.button("➕ Añadir", key=f"btn_add_{lista_key}"):
+                if st.button("➕", key=f"btn_add_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
-                        # Sincronizamos la lista específica (ej: list_activos)
-                        df_seguimiento = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        sincronizar(lista_key, df_seguimiento)
+                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
                         st.rerun()
 
         lista = st.session_state[lista_key]
         if lista:
             for emp_nombre in lista:
                 with st.expander(f"🏢 {emp_nombre}"):
-                    datos = next((i for i in st.session_state.db_contactos if i['Empresa'] == emp_nombre), None)
-                    if datos: st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
                     if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
-                        df_seguimiento = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        sincronizar(lista_key, df_seguimiento)
+                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
                         st.rerun()
 
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
