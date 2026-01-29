@@ -160,7 +160,7 @@ elif opcion == "Contactos":
     with t_vis: render_lista("Clientes por Visitar", "list_visitar")
     with t_otr: render_lista("Clientes de Otro", "list_otros")
 
-# --- MÓDULO ÓRDENES DE COMPRA (AJUSTE DÓLAR PAUTADO) ---
+# --- MÓDULO ÓRDENES DE COMPRA (DÓLAR A LA IZQUIERDA DEL MONTO) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
     tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Gestión"])
@@ -174,7 +174,7 @@ elif opcion == "Órdenes de Compra":
                 nombre_oc = c_oc1.text_input("Nombre OC / Referencia")
                 fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
                 emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
-                # Usamos la variable 'dolar' que ya tenías
+                # Mantenemos el input del dólar
                 dolar = c_oc2.number_input("Dólar Pautado", value=1000.0) 
                 
                 tipo_fact = st.radio("Tipo de Facturación", ["En Blanco", "En Negro"], horizontal=True)
@@ -206,8 +206,8 @@ elif opcion == "Órdenes de Compra":
                     st.session_state.db_oc.append({
                         "ID": oc_id, 
                         "Empresa": emp_oc, 
+                        "Dólar": dolar,    # <--- Guardado
                         "Monto": total_usd, 
-                        "Dólar": dolar, # <--- AGREGADO AQUÍ
                         "Fecha": fecha_oc, 
                         "Referencia": nombre_oc,
                         "Facturación": tipo_fact,
@@ -248,14 +248,17 @@ elif opcion == "Órdenes de Compra":
                         <h2>Reporte OC: {emp_busc}</h2>
                         {df_f.to_html(index=False)}
                         <br>
-                        <h3>Monto Total: U$S {df_f['Monto'].sum():,.2f}</h3>
+                        <h3>Monto Total Filtrado: U$S {df_f['Monto'].sum():,.2f}</h3>
                     </div>
                     """
                     d_col2.download_button("📄 PDF", html, f"OC_{emp_busc}.html", "text/html", use_container_width=True)
 
                 st.write("---")
-                # La tabla ahora incluirá automáticamente la columna 'Dólar' porque está en el DataFrame
-                st.dataframe(df_f, use_container_width=True)
+                # Reordenamos las columnas aquí para que aparezca: ID, Empresa, Dólar, Monto...
+                columnas_ordenadas = ["ID", "Fecha", "Empresa", "Dólar", "Monto", "Referencia", "Facturación", "Detalle Extra"]
+                # Solo mostramos las columnas que existen para evitar errores
+                cols_finales = [col for col in columnas_ordenadas if col in df_f.columns]
+                st.dataframe(df_f[cols_finales], use_container_width=True)
 
                 with st.expander("🗑️ Eliminar una Orden"):
                     id_a_borrar = st.selectbox("Elegí el ID para borrar", df_f["ID"].tolist() if not df_f.empty else ["Ninguno"])
