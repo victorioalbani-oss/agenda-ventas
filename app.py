@@ -75,7 +75,7 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (VERSIÓN CON SINCRONIZACIÓN A GOOGLE SHEETS) ---
+# --- MÓDULO CONTACTOS (VERSIÓN FINAL CORREGIDA) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -110,16 +110,17 @@ elif opcion == "Contactos":
             if st.form_submit_button("Guardar Contacto"):
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
                 nuevo_contacto = {
-                    "N°": cid, "Empresa": empresa, "País": pais,
-                    "Provincia": prov, "Ciudad": ciudad, "Maps": maps, "Actividad": actividad, "Web": web,
+                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
+                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                 }
+                # 1. Guardar en la memoria local (App)
                 st.session_state.db_contactos.append(nuevo_contacto)
                 
-                # --- ESTO DEBE IR AQUÍ DENTRO ---
+                # 2. Sincronizar con Google Sheets (Nube)
                 sincronizar("contactos", st.session_state.db_contactos)
                 
-                st.success(f"Contacto {cid} guardado.")
+                st.success(f"Contacto {cid} guardado correctamente.")
                 st.rerun()
 
     with t2:
@@ -158,7 +159,7 @@ elif opcion == "Contactos":
                     st.session_state.db_contactos[idx].update({
                         "Empresa": new_nom, "Actividad": new_act, "País": new_pais,
                         "Ciudad": new_ciudad, "Maps": new_maps, "T1": new_tel1,
-                        "T2": new_tel2, "M1": new_mail1, "M2": mail2,
+                        "T2": new_tel2, "M1": new_mail1, "M2": new_mail2,
                         "Web": new_web, "Extra": new_extra
                     })
 
@@ -171,10 +172,10 @@ elif opcion == "Contactos":
                     # --- ACTUALIZAR EN GOOGLE SHEETS ---
                     sincronizar("contactos", st.session_state.db_contactos)
 
-                    st.success("¡Información actualizada!")
+                    st.success("¡Información actualizada en la nube!")
                     st.rerun()
         else:
-            st.info("Cargá una empresa para editar.")
+            st.info("No hay contactos para editar.")
 
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
@@ -188,8 +189,9 @@ elif opcion == "Contactos":
                 if st.button("➕ Añadir", key=f"btn_add_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
-                        # También sincronizamos las listas si querés que se guarden
-                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
+                        # Sincronizamos la lista específica (ej: list_activos)
+                        df_seguimiento = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_seguimiento)
                         st.rerun()
 
         lista = st.session_state[lista_key]
@@ -200,7 +202,8 @@ elif opcion == "Contactos":
                     if datos: st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
                     if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
-                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
+                        df_seguimiento = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_seguimiento)
                         st.rerun()
 
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
