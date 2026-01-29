@@ -441,76 +441,85 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y SIN ERRORES) ---
+# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y ALINEADO) ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Informe Integral de Empresa")
     
     if not st.session_state.db_contactos:
         st.warning("No hay contactos registrados.")
     else:
-        # 1. Buscador
+        # 1. Buscador de Empresa
         lista_nombres = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
         empresa_f = st.selectbox("🔍 Seleccioná la empresa para el reporte:", lista_nombres)
         c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
         if c:
-            # 2. Filtrar Datos
+            # 2. Preparar Datos de Bitácora
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             filtro_bit = df_bit[df_bit['Empresa'] == empresa_f] if not df_bit.empty else pd.DataFrame()
 
+            # 3. Preparar Datos de OC con Dólar a la izquierda de Monto
             df_oc = pd.DataFrame(st.session_state.db_oc)
             if not df_oc.empty:
                 df_oc_f = df_oc[df_oc['Empresa'] == empresa_f]
-                # Reordenamos columnas: Dólar a la izquierda de Monto
+                # Reordenamos columnas: Dólar antes que Monto
                 cols_orden = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-                filtro_oc = df_oc_f[[col for col in cols_orden if col in df_oc_f.columns]]
+                # Filtramos solo las que existen para evitar errores de columnas faltantes
+                cols_finales = [col for col in cols_orden if col in df_oc_f.columns]
+                filtro_oc = df_oc_f[cols_finales]
             else:
                 filtro_oc = pd.DataFrame()
 
             st.write("---")
             
-            # 3. CONSTRUCCIÓN DEL HTML
+            # 4. Construcción del HTML para Descarga Directa
             html_descarga = f"""
             <html>
             <head>
                 <style>
-                    body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
-                    .header {{ border: 2px solid #1f77b4; padding: 20px; border-radius: 8px; text-align: center; }}
-                    h1 {{ color: #1f77b4; margin: 0; }}
-                    h3 {{ background-color: #f2f2f2; padding: 8px; border-left: 5px solid #1f77b4; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }}
-                    th {{ background-color: #f8f9fa; }}
-                    .total {{ text-align: right; font-size: 16px; font-weight: bold; margin-top: 20px; }}
+                    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #333; }}
+                    .header {{ border: 2px solid #1f77b4; padding: 20px; border-radius: 10px; text-align: center; background-color: #f0f8ff; }}
+                    h1 {{ color: #1f77b4; margin: 0; font-size: 28px; }}
+                    h3 {{ border-bottom: 2px solid #1f77b4; padding-bottom: 5px; margin-top: 30px; color: #444; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+                    th, td {{ border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 13px; }}
+                    th {{ background-color: #f2f2f2; font-weight: bold; }}
+                    .info-box {{ display: flex; justify-content: space-between; flex-wrap: wrap; }}
+                    .info-item {{ width: 48%; margin-bottom: 10px; }}
+                    .total {{ text-align: right; font-size: 18px; font-weight: bold; margin-top: 25px; color: #1f77b4; }}
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <h1>INFORME INTEGRAL</h1>
-                    <p>Empresa: <b>{empresa_f}</b> | Fecha: {datetime.now().strftime('%d/%m/%Y')}</p>
+                    <h1>INFORME INTEGRAL DE GESTIÓN</h1>
+                    <p><b>Empresa:</b> {empresa_f} | <b>Fecha de Reporte:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
                 </div>
-                <h3>1. Datos de Contacto</h3>
-                <p><b>ID:</b> {c['N°']} | <b>Actividad:</b> {c['Actividad']}</p>
-                <p><b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
-                <p><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} / {c.get('T3','')}</p>
-                <p><b>Mails:</b> {c['M1']} / {c.get('M2','')} / {c.get('M3','')}</p>
-                <p><b>Web:</b> {c.get('Web','N/A')} | <b>Maps:</b> {c.get('Maps','N/A')}</p>
-                <p><b>Dato Extra:</b> {c.get('Extra','N/A')}</p>
+                
+                <h3>1. Datos Completos de Contacto</h3>
+                <div class="info-box">
+                    <div class="info-item"><b>ID de Registro:</b> {c['N°']}</div>
+                    <div class="info-item"><b>Actividad principal:</b> {c['Actividad']}</div>
+                    <div class="info-item"><b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</div>
+                    <div class="info-item"><b>Sitio Web:</b> {c.get('Web','N/A')}</div>
+                    <div class="info-item"><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} / {c.get('T3','')}</div>
+                    <div class="info-item"><b>Emails:</b> {c['M1']} / {c.get('M2','')} / {c.get('M3','')}</div>
+                </div>
+                <p><b>Datos Extra / Observaciones:</b> {c.get('Extra','Sin información adicional.')}</p>
 
-                <h3>2. Historial de Bitácora</h3>
-                {filtro_bit[['Fecha', 'Gestion', 'Observaciones']].to_html(index=False) if not filtro_bit.empty else '<p>Sin registros.</p>'}
+                <h3>2. Historial de Gestiones (Bitácora)</h3>
+                {filtro_bit[['Fecha', 'Gestion', 'Observaciones']].to_html(index=False) if not filtro_bit.empty else '<p>No se registran gestiones en bitácora.</p>'}
 
                 <h3>3. Historial de Órdenes de Compra</h3>
-                {filtro_oc.to_html(index=False) if not filtro_oc.empty else '<p>Sin registros.</p>'}
+                {filtro_oc.to_html(index=False) if not filtro_oc.empty else '<p>No se registran órdenes de compra.</p>'}
                 
                 <div class="total">
-                    Total Facturado Acumulado: U$S {filtro_oc['Monto'].sum() if not filtro_oc.empty else 0:,.2f}
+                    Monto Total Facturado a la fecha: U$S {filtro_oc['Monto'].sum() if not filtro_oc.empty else 0:,.2f}
                 </div>
             </body>
             </html>
             """
 
-            # 4. Botón de Descarga
+            # 5. Botón de Descarga
             st.download_button(
                 label="📥 DESCARGAR INFORME COMPLETO (.HTML)",
                 data=html_descarga,
@@ -520,9 +529,9 @@ elif opcion == "Historial Empresas":
                 type="primary"
             )
 
-            # Vista rápida en pantalla
+            # 6. Vista rápida en pantalla
             st.write("---")
-            st.subheader(f"Vista previa: {empresa_f}")
-            st.write(f"💼 {c['Actividad']} | 📍 {c['Ciudad']} | 📱 {c['T1']}")
+            st.subheader(f"Resumen de {empresa_f}")
             if not filtro_oc.empty:
+                st.dataframe(filtro_oc, use_container_width=True)
                 st.metric("Ventas Totales", f"U$S {filtro_oc['Monto'].sum():,.2f}")
