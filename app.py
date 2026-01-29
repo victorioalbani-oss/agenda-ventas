@@ -275,6 +275,73 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
+# --- MÓDULO BITÁCORA (VERSIÓN ROBUSTA Y SINCRONIZADA) ---
+elif opcion == "Bitácora":
+    st.header("📝 Bitácora de Actividad")
+    
+    # Asegurar que la base existe
+    if "db_bitacora" not in st.session_state:
+        st.session_state.db_bitacora = []
+
+    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
+    
+    with b1:
+        if not st.session_state.db_contactos:
+            st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
+        else:
+            with st.form("form_bitacora_nueva", clear_on_submit=True):
+                # Usamos los nombres actuales de la DB de contactos
+                lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
+                emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
+                fecha_b = st.date_input("Fecha de la Gestión", datetime.now())
+                # Usamos 'Gestion' como nombre de columna para que coincida con el Historial Integral
+                detalle_b = st.text_area("¿Qué se gestionó? (Detalle)")
+                
+                if st.form_submit_button("Cargar en Bitácora"):
+                    st.session_state.db_bitacora.append({
+                        "Fecha": fecha_b, 
+                        "Empresa": emp_b, 
+                        "Gestion": detalle_b
+                    })
+                    st.success(f"✅ Registro guardado para {emp_b}")
+                    st.rerun()
+
+    with b2:
+        st.subheader("🔎 Buscador de Gestiones")
+        if st.session_state.db_bitacora:
+            df_bit = pd.DataFrame(st.session_state.db_bitacora)
+            
+            # Limpieza de fechas para que el filtro no falle
+            df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
+            
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                # El filtro se alimenta de las empresas que REALMENTE tienen bitácora
+                empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
+                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso)
+            with col_f2:
+                rango = st.date_input("Rango de fechas", value=[])
+
+            # Lógica de filtrado
+            df_filtrado = df_bit.copy()
+            if f_emp != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
+            
+            if len(rango) == 2:
+                df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
+
+            # Muestra de tabla (Solo columnas que existan para evitar KeyError)
+            cols_visibles = [c for c in ["Fecha", "Empresa", "Gestion"] if c in df_filtrado.columns]
+            st.dataframe(df_filtrado[cols_visibles], use_container_width=True)
+            
+            st.write("---")
+            # Botones de gestión de datos
+            if st.button("🗑️ Eliminar último registro"):
+                if len(st.session_state.db_bitacora) > 0:
+                    st.session_state.db_bitacora.pop()
+                    st.rerun()
+        else:
+            st.info("La bitácora está vacía. Agregá tu primera gestión arriba.")
 
 # --- MÓDULO COBROS (ACTUALIZADO CON DÓLAR A LA IZQUIERDA) ---
 elif opcion == "Cobros":
