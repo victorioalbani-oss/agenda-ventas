@@ -256,35 +256,45 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
+# --- MÓDULO BITÁCORA (SINCRONIZADO CON CONTACTOS) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
     
     with b1:
-        with st.form("form_bit", clear_on_submit=True):
-            emp_b = st.selectbox("Asociar a Empresa", [c['Empresa'] for c in st.session_state.db_contactos] if st.session_state.db_contactos else ["Sin contactos"])
-            fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-            cont = st.text_area("Detalle de la actividad")
-            
-            if st.form_submit_button("Cargar Bitácora"):
-                st.session_state.db_bitacora.append({
-                    "Fecha Realizada": fecha_realizada,
-                    "Empresa": emp_b,
-                    "Detalle": cont
-                })
-                st.success("Registro guardado exitosamente.")
+        if not st.session_state.db_contactos:
+            st.warning("Debe cargar un contacto antes de usar la bitácora.")
+        else:
+            with st.form("form_bit", clear_on_submit=True):
+                # Usamos la lista de empresas actualizada de los contactos
+                nombres_emp = sorted([c['Empresa'] for c in st.session_state.db_contactos])
+                emp_b = st.selectbox("Asociar a Empresa", nombres_emp)
+                fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
+                cont = st.text_area("Detalle de la actividad")
+                
+                if st.form_submit_button("Cargar Bitácora"):
+                    st.session_state.db_bitacora.append({
+                        "Fecha": fecha_realizada, # Nombre de columna estándar
+                        "Empresa": emp_b,
+                        "Gestion": cont # Nombre de columna estándar usado en Historial Integral
+                    })
+                    st.success(f"Registro para {emp_b} guardado.")
+                    st.rerun()
 
     with b2:
         st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            df_bit["Fecha Realizada"] = pd.to_datetime(df_bit["Fecha Realizada"]).dt.date
+            
+            # Aseguramos formato de fecha para el filtro
+            if "Fecha" in df_bit.columns:
+                df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
             
             c_f1, c_f2 = st.columns(2)
             with c_f1:
-                empresas_bit = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-                f_emp = st.selectbox("Filtrar por Empresa", empresas_bit)
+                # El filtro siempre toma los nombres actuales de la DB de contactos
+                empresas_en_bitacora = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
+                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_bitacora)
             with c_f2:
                 rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
 
@@ -292,40 +302,35 @@ elif opcion == "Bitácora":
             df_filtrado = df_bit.copy()
             if f_emp != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
+            
             if len(rango_fechas) == 2:
                 f_inicio, f_fin = rango_fechas
-                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= f_inicio) & (df_filtrado["Fecha Realizada"] <= f_fin)]
+                if "Fecha" in df_filtrado.columns:
+                    df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= f_inicio) & (df_filtrado["Fecha"] <= f_fin)]
 
-            # Mostramos la tabla filtrada
+            # Mostramos la tabla
             st.dataframe(df_filtrado, use_container_width=True)
             
-            # --- SECCIÓN DE DESCARGA Y ELIMINACIÓN ---
             st.write("---")
             col_acc1, col_acc2 = st.columns(2)
 
             with col_acc1:
-                st.write("📂 **Exportar Datos Filtrados**")
                 if not df_filtrado.empty:
-                    # El nombre del archivo cambia según la empresa elegida
-                    nombre_archivo = f"bitacora_{f_emp.replace(' ', '_')}.csv"
                     csv = df_filtrado.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        label=f"📥 Descargar Bitácora de {f_emp}",
+                        label=f"📥 Descargar datos de {f_emp}",
                         data=csv,
-                        file_name=nombre_archivo,
+                        file_name=f"bitacora_{f_emp}.csv",
                         mime="text/csv",
                     )
                 
             with col_acc2:
-                st.write("⚠️ **Zona de Peligro**")
-                # Opción para eliminar el último registro o limpiar todo
-                if st.button("🗑️ Eliminar último registro cargado"):
-                    if len(st.session_state.db_bitacora) > 0:
+                with st.expander("🗑️ Zona de Borrado"):
+                    if st.button("Eliminar último registro"):
                         st.session_state.db_bitacora.pop()
-                        st.rerun() # Reinicia la app para mostrar los cambios
-            
+                        st.rerun()
         else:
-            st.info("No hay registros todavía.")
+            st.info("No hay datos de bitácora todavía.")
 
 # --- MÓDULO COBROS (ACTUALIZADO CON DÓLAR A LA IZQUIERDA) ---
 elif opcion == "Cobros":
