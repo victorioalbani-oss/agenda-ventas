@@ -441,7 +441,6 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-from fpdf import FPDF
 
 # --- MÓDULO HISTORIAL INTEGRAL (DESCARGA DIRECTA) ---
 elif opcion == "Historial Empresas":
