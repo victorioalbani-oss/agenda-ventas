@@ -160,7 +160,7 @@ elif opcion == "Contactos":
     with t_vis: render_lista("Clientes por Visitar", "list_visitar")
     with t_otr: render_lista("Clientes de Otro", "list_otros")
 
-# --- MÓDULO ÓRDENES DE COMPRA (FINAL: MULTI-ARTÍCULO + PDF + ELIMINAR) ---
+# --- MÓDULO ÓRDENES DE COMPRA (CON TIPO DE FACTURACIÓN Y DETALLE EXTRA) ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
     tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Gestión"])
@@ -175,6 +175,10 @@ elif opcion == "Órdenes de Compra":
                 fecha_oc = c_oc2.date_input("Fecha OC", datetime.now())
                 emp_oc = c_oc1.selectbox("Empresa", [c['Empresa'] for c in st.session_state.db_contactos])
                 dolar = c_oc2.number_input("Dólar Pautado", value=1000.0)
+                
+                # --- NUEVOS CAMPOS SOLICITADOS ---
+                tipo_fact = st.radio("Tipo de Facturación", ["En Blanco", "En Negro"], horizontal=True)
+                detalle_extra_oc = st.text_area("Detalle Extra de la Orden")
             
             st.write("---")
             st.subheader("📦 Cargar Artículos")
@@ -197,16 +201,21 @@ elif opcion == "Órdenes de Compra":
                 st.metric("TOTAL ACUMULADO", f"U$S {total_usd:,.2f}")
                 
                 c_fin1, c_fin2 = st.columns(2)
-                if c_fin1.button("💾 GUARDAR ORDEN COMPLETA", type="primary"):
+                if c_fin1.button("💾 GUARDAR ORDEN COMPLETA", type="primary", use_container_width=True):
                     oc_id = f"OC - {len(st.session_state.db_oc) + 1}"
                     st.session_state.db_oc.append({
-                        "ID": oc_id, "Empresa": emp_oc, "Monto": total_usd, 
-                        "Fecha": fecha_oc, "Referencia": nombre_oc
+                        "ID": oc_id, 
+                        "Empresa": emp_oc, 
+                        "Monto": total_usd, 
+                        "Fecha": fecha_oc, 
+                        "Referencia": nombre_oc,
+                        "Facturación": tipo_fact,       # Se guarda el nuevo campo
+                        "Detalle Extra": detalle_extra_oc # Se guarda el nuevo campo
                     })
                     st.session_state.db_items_oc_actual = []
-                    st.success("Orden guardada!")
+                    st.success(f"¡{oc_id} guardada exitosamente!")
                     st.rerun()
-                if c_fin2.button("🗑️ Vaciar lista"):
+                if c_fin2.button("🗑️ Vaciar lista items", use_container_width=True):
                     st.session_state.db_items_oc_actual = []
                     st.rerun()
 
@@ -218,7 +227,7 @@ elif opcion == "Órdenes de Compra":
                 
                 f_col1, f_col2 = st.columns(2)
                 with f_col1:
-                    emp_busc = st.selectbox("Empresa", ["Todas"] + sorted(list(df_hist["Empresa"].unique())))
+                    emp_busc = st.selectbox("Filtrar por Empresa", ["Todas"] + sorted(list(df_hist["Empresa"].unique())))
                 with f_col2:
                     rango = st.date_input("Rango de fechas", value=[])
 
@@ -236,7 +245,16 @@ elif opcion == "Órdenes de Compra":
                     d_col1.download_button("📥 EXCEL", csv, f"OC_{emp_busc}.csv", use_container_width=True)
                     
                     # PDF (HTML prolijo para guardar como PDF)
-                    html = f"<h2>Reporte OC: {emp_busc}</h2>{df_f.to_html()}<br><h3>Total: U$S {df_f['Monto'].sum():,.2f}</h3>"
+                    # Incluimos los nuevos campos en el reporte para que se vean al imprimir
+                    html = f"""
+                    <div style='font-family: Arial;'>
+                        <h2>Reporte OC: {emp_busc}</h2>
+                        <p>Fecha de reporte: {datetime.now().date()}</p>
+                        {df_f.to_html(index=False)}
+                        <br>
+                        <h3>Monto Total Filtrado: U$S {df_f['Monto'].sum():,.2f}</h3>
+                    </div>
+                    """
                     d_col2.download_button("📄 PDF", html, f"OC_{emp_busc}.html", "text/html", use_container_width=True)
 
                 st.write("---")
@@ -244,13 +262,14 @@ elif opcion == "Órdenes de Compra":
 
                 # --- ELIMINAR ORDEN ---
                 with st.expander("🗑️ Eliminar una Orden"):
-                    id_a_borrar = st.selectbox("Elegí el ID para borrar", df_f["ID"].tolist())
+                    id_a_borrar = st.selectbox("Elegí el ID para borrar", df_f["ID"].tolist() if not df_f.empty else ["Ninguno"])
                     if st.button("Confirmar Borrado"):
-                        st.session_state.db_oc = [o for o in st.session_state.db_oc if o["ID"] != id_a_borrar]
-                        st.rerun()
+                        if id_a_borrar != "Ninguno":
+                            st.session_state.db_oc = [o for o in st.session_state.db_oc if o["ID"] != id_a_borrar]
+                            st.rerun()
             else:
                 st.info("No hay órdenes.")
-        
+                
 # --- MÓDULO BITÁCORA (CON ELIMINACIÓN Y DESCARGA FILTRADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
