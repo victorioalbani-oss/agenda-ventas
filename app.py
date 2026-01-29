@@ -12,7 +12,7 @@ for key in ['contactos', 'productos', 'bitacora', 'oc', 'items_oc_actual']:
 
 # --- NAVEGACIÓN LATERAL ---
 st.sidebar.title("Menú Principal")
-opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos"])
+opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
 
 # --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
