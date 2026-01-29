@@ -436,3 +436,91 @@ elif opcion == "Cobros":
                         st.table(df_mes[["OC", "Empresa", "Monto", "Estado"]])
             else:
                 st.info("No hay datos de cobros.")
+
+# --- MÓDULO HISTORIAL INTEGRAL POR EMPRESA ---
+elif opcion == "Historial Empresas":
+    st.header("🏢 Historial Integral de Empresa")
+    
+    if not st.session_state.db_contactos:
+        st.warning("No hay contactos cargados todavía.")
+    else:
+        # 1. Buscador Principal
+        nombres_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
+        empresa_sel = st.selectbox("🔍 Seleccioná la empresa para ver su historial completo:", nombres_empresas)
+        
+        # Obtener datos de contacto de forma segura
+        contacto = next((c for c in st.session_state.db_contactos if c['Empresa'] == empresa_sel), None)
+        
+        if contacto:
+            st.write("---")
+            # --- SECCIÓN 1: FICHA DE CONTACTO ---
+            st.subheader("📋 Información de Contacto")
+            col_inf1, col_inf2 = st.columns(2)
+            with col_inf1:
+                st.markdown(f"**Ubicación:** {contacto['Ciudad']}, {contacto.get('Provincia','')} ({contacto['País']})")
+                st.markdown(f"**Actividad:** {contacto['Actividad']}")
+                if contacto['Maps']: st.link_button("🌐 Google Maps", contacto['Maps'])
+            with col_inf2:
+                st.markdown(f"**Teléfonos:** {contacto['T1']} / {contacto.get('T2','')}")
+                st.markdown(f"**Mails:** {contacto['M1']} / {contacto.get('M2','')}")
+            
+            st.write("---")
+            
+            # --- SECCIÓN 2: BITÁCORA (GESTIONES) ---
+            st.subheader("📝 Historial de Gestiones (Bitácora)")
+            df_bit = pd.DataFrame(st.session_state.db_bitacora)
+            if not df_bit.empty and 'Empresa' in df_bit.columns:
+                filtro_bit = df_bit[df_bit['Empresa'] == empresa_sel]
+                if not filtro_bit.empty:
+                    st.dataframe(filtro_bit, use_container_width=True)
+                else:
+                    st.info("No hay gestiones registradas para esta empresa.")
+            else:
+                st.info("La bitácora está vacía.")
+
+            st.write("---")
+
+            # --- SECCIÓN 3: ÓRDENES DE COMPRA ---
+            st.subheader("🛒 Órdenes de Compra y Cobros")
+            df_oc = pd.DataFrame(st.session_state.db_oc)
+            if not df_oc.empty and 'Empresa' in df_oc.columns:
+                filtro_oc = df_oc[df_oc['Empresa'] == empresa_sel]
+                if not filtro_oc.empty:
+                    st.dataframe(filtro_oc, use_container_width=True)
+                    total_monto = filtro_oc['Monto'].sum()
+                    st.metric(f"Total Facturado a {empresa_sel}", f"U$S {total_monto:,.2f}")
+                else:
+                    st.info("No hay órdenes de compra para esta empresa.")
+            else:
+                st.info("No hay órdenes registradas en el sistema.")
+
+            # --- SECCIÓN 4: DESCARGA DE REPORTE INTEGRAL ---
+            st.write("---")
+            st.subheader("📥 Exportar Informe")
+            
+            # Preparamos un HTML prolijo para el PDF
+            html_integral = f"""
+            <div style="font-family: Arial; border: 1px solid #eee; padding: 20px;">
+                <h1 style="color: #1f77b4;">INFORME INTEGRAL: {empresa_sel}</h1>
+                <p><b>Fecha de emisión:</b> {datetime.now().strftime('%d/%m/%Y')}</p>
+                <hr>
+                <h3>1. Datos de Contacto</h3>
+                <p><b>Actividad:</b> {contacto['Actividad']} | <b>Ubicación:</b> {contacto['Ciudad']} ({contacto['País']})</p>
+                <p><b>Contacto:</b> {contacto['T1']} / {contacto['M1']}</p>
+                <hr>
+                <h3>2. Resumen de Ventas</h3>
+                <p><b>Monto Total Acumulado:</b> U$S {filtro_oc['Monto'].sum() if not df_oc.empty else 0:,.2f}</p>
+            </div>
+            """
+            
+            c_d1, c_d2 = st.columns(2)
+            # Botón de Excel (unificando Bitácora y OCs si existen)
+            if c_d1.button("📥 Generar Reporte para Imprimir / PDF", use_container_width=True):
+                st.markdown(html_integral, unsafe_allow_html=True)
+                st.success("¡Reporte listo! Presioná Ctrl+P para guardar como PDF.")
+                if not filtro_bit.empty:
+                    st.write("### Detalle Bitácora")
+                    st.table(filtro_bit)
+                if not filtro_oc.empty:
+                    st.write("### Detalle Órdenes")
+                    st.table(filtro_oc)
