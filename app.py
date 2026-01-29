@@ -441,7 +441,7 @@ elif opcion == "Cobros":
             else:
                 st.info("No hay datos de cobros.")
 
-# --- MÓDULO HISTORIAL INTEGRAL (REEMPLAZO COMPLETO) ---
+# --- MÓDULO HISTORIAL INTEGRAL (REEMPLAZO CON DÓLAR AJUSTADO) ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Historial Integral por Empresa")
     
@@ -466,6 +466,11 @@ elif opcion == "Historial Empresas":
         df_oc_f = pd.DataFrame()
         if not df_oc_all.empty:
             df_oc_f = df_oc_all[df_oc_all['Empresa'] == empresa_f]
+            # Definimos el orden de las columnas aquí (Dólar a la izquierda de Monto)
+            columnas_oc = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
+            # Filtramos solo las columnas que realmente existan para evitar errores
+            cols_validas = [col for col in columnas_oc if col in df_oc_f.columns]
+            df_oc_f = df_oc_f[cols_validas]
 
         # --- MOSTRAR EN PANTALLA ---
         st.write("---")
@@ -491,6 +496,7 @@ elif opcion == "Historial Empresas":
         st.write("---")
         st.subheader("🛒 Órdenes de Compra")
         if not df_oc_f.empty:
+            # Aquí ya sale con el orden de columnas ajustado arriba
             st.dataframe(df_oc_f, use_container_width=True)
             st.metric("Total Facturado", f"U$S {df_oc_f['Monto'].sum():,.2f}")
         else:
