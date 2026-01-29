@@ -44,7 +44,7 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (CON FUNCIÓN DE EDICIÓN) ---
+# --- MÓDULO CONTACTOS (CON EDICIÓN Y ACTUALIZACIÓN EN CASCADA) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -54,8 +54,7 @@ elif opcion == "Contactos":
     if "list_otros" not in st.session_state: st.session_state.list_otros = []
 
     t1, t2, t3, t_act, t_int, t_vis, t_otr = st.tabs([
-        "Agregar Contacto", "Lista de Contactos", "🔍 Buscar y Editar", 
-        "✅ Clientes Activos", "⭐ Interesados", "📍 Por Visitar", "👤 Clientes de Otro"
+        "Agregar Contacto", "Lista", "🔍 Editar", "✅ Activos", "⭐ Interesados", "📍 Visitar", "👤 Otros"
     ])
     
     with t1:
@@ -67,85 +66,48 @@ elif opcion == "Contactos":
                 pais = st.text_input("País")
                 prov = st.text_input("Provincia")
                 ciudad = st.text_input("Ciudad")
-                maps = st.text_input("Dirección Google Maps")
+                maps = st.text_input("Google Maps")
             with col2:
-                web = st.text_input("Página Web")
-                tel1, tel2, tel3 = st.text_input("Teléfono 1"), st.text_input("Teléfono 2"), st.text_input("Teléfono 3")
-                mail1, mail2, mail3 = st.text_input("Mail 1"), st.text_input("Mail 2"), st.text_input("Mail 3")
-                extra = st.text_area("Dato Extra")
+                web = st.text_input("Web")
+                tels = [st.text_input("Tel 1"), st.text_input("Tel 2"), st.text_input("Tel 3")]
+                mails = [st.text_input("Mail 1"), st.text_input("Mail 2"), st.text_input("Mail 3")]
+                extra = st.text_area("Notas")
             
-            if st.form_submit_button("Guardar Contacto"):
+            if st.form_submit_button("Guardar"):
                 cid = f"C - {len(st.session_state.db_contactos) + 1}"
                 st.session_state.db_contactos.append({
-                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
-                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": tel1, "T2": tel2, "T3": tel3, "M1": mail1, "M2": mail2, "M3": mail3, "Extra": extra
+                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad, "Provincia": prov, 
+                    "Maps": maps, "Actividad": actividad, "Web": web, "T1": tels[0], "T2": tels[1], 
+                    "T3": tels[2], "M1": mails[0], "M2": mails[1], "M3": mails[2], "Extra": extra
                 })
-                st.success(f"Contacto {cid} guardado.")
-                st.rerun()
-
-    with t2:
-        if st.session_state.db_contactos:
-            st.dataframe(pd.DataFrame(st.session_state.db_contactos)[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
-        else: st.info("No hay contactos.")
+                st.success("Guardado.")
 
     with t3:
         if st.session_state.db_contactos:
             nombres = [c['Empresa'] for c in st.session_state.db_contactos]
-            busqueda = st.selectbox("Seleccioná empresa para ver o EDITAR:", nombres)
-            # Buscamos el índice para poder modificar el original
-            idx_c = next((i for i, item in enumerate(st.session_state.db_contactos) if item['Empresa'] == busqueda), None)
-            c = st.session_state.db_contactos[idx_c]
+            busc = st.selectbox("Seleccioná para EDITAR:", nombres)
+            idx = next(i for i, item in enumerate(st.session_state.db_contactos) if item['Empresa'] == busc)
+            c = st.session_state.db_contactos[idx]
 
-            with st.expander("📝 EDITAR DATOS DE ESTA EMPRESA"):
-                with st.form(f"edit_form_{c['N°']}"):
-                    col_e1, col_e2 = st.columns(2)
-                    with col_e1:
-                        new_emp = st.text_input("Empresa", value=c['Empresa'])
-                        new_act = st.text_input("Actividad", value=c['Actividad'])
-                        new_pais = st.text_input("País", value=c['País'])
-                        new_prov = st.text_input("Provincia", value=c.get('Provincia',''))
-                        new_ciud = st.text_input("Ciudad", value=c['Ciudad'])
-                    with col_e2:
-                        new_tel1 = st.text_input("Tel 1", value=c['T1'])
-                        new_mail1 = st.text_input("Mail 1", value=c['M1'])
-                        new_web = st.text_input("Web", value=c.get('Web',''))
-                        new_extra = st.text_area("Extra", value=c.get('Extra',''))
-                    
-                    if st.form_submit_button("💾 GUARDAR CAMBIOS"):
-                        st.session_state.db_contactos[idx_c].update({
-                            "Empresa": new_emp, "Actividad": new_act, "País": new_pais,
-                            "Provincia": new_prov, "Ciudad": new_ciud, "T1": new_tel1,
-                            "M1": new_mail1, "Web": new_web, "Extra": new_extra
-                        })
-                        st.success("Cambios guardados.")
-                        st.rerun()
-
-            # BOTONES DE SEGUIMIENTO
-            st.write("---")
-            c_b1, c_b2, c_b3, c_b4 = st.columns(4)
-            if c_b1.button("✅ Activo"): st.session_state.list_activos.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_activos else None
-            if c_b2.button("⭐ Interesado"): st.session_state.list_interesados.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_interesados else None
-            if c_b3.button("📍 Visitar"): st.session_state.list_visitar.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_visitar else None
-            if c_b4.button("👤 De Otro"): st.session_state.list_otros.append(c['Empresa']) if c['Empresa'] not in st.session_state.list_otros else None
-
-    # LÓGICA DE LISTAS (PESTAÑAS)
-    def render_lista(titulo, lista_key):
-        st.subheader(titulo)
-        lista = st.session_state[lista_key]
-        if lista:
-            for emp in lista:
-                col_x1, col_x2 = st.columns([4,1])
-                col_x1.write(f"🏢 **{emp}**")
-                if col_x2.button("❌", key=f"del_{lista_key}_{emp}"):
-                    st.session_state[lista_key].remove(emp)
+            with st.form("edit_contacto"):
+                col_e1, col_e2 = st.columns(2)
+                nombre_viejo = c['Empresa']
+                new_nom = col_e1.text_input("Nombre Empresa", value=c['Empresa'])
+                new_act = col_e1.text_input("Actividad", value=c['Actividad'])
+                new_t1 = col_e2.text_input("Teléfono Principal", value=c['T1'])
+                new_m1 = col_e2.text_input("Mail Principal", value=c['M1'])
+                
+                if st.form_submit_button("💾 ACTUALIZAR TODO"):
+                    # 1. Actualizar Contacto
+                    st.session_state.db_contactos[idx].update({"Empresa": new_nom, "Actividad": new_act, "T1": new_t1, "M1": new_m1})
+                    # 2. Actualizar Bitácora (Cascada)
+                    for r in st.session_state.db_bitacora:
+                        if r['Empresa'] == nombre_viejo: r['Empresa'] = new_nom
+                    # 3. Actualizar OCs (Cascada)
+                    for o in st.session_state.db_oc:
+                        if o['Empresa'] == nombre_viejo: o['Empresa'] = new_nom
+                    st.success("Sincronización completa.")
                     st.rerun()
-        else: st.info("Lista vacía.")
-
-    with t_act: render_lista("Activos", "list_activos")
-    with t_int: render_lista("Interesados", "list_interesados")
-    with t_vis: render_lista("Por Visitar", "list_visitar")
-    with t_otr: render_lista("De Otros", "list_otros")
 
 # --- MÓDULO ÓRDENES DE COMPRA (DÓLAR A LA IZQUIERDA DEL MONTO) ---
 elif opcion == "Órdenes de Compra":
