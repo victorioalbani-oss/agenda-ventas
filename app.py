@@ -342,94 +342,90 @@ elif opcion == "Bitácora":
             st.info("No hay registros todavía.")
 
 
-# --- MÓDULO COBROS ---
+# --- MÓDULO COBROS (CORREGIDO Y OPTIMIZADO) ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
     
-    # Inicializamos la base de datos de cobros si no existe
+    # Inicialización segura
     if "db_cobros" not in st.session_state:
         st.session_state.db_cobros = {}
 
-    tab_gestion, tab_mensual = st.tabs(["🔄 Gestión de Estados", "📅 Proyección Mensual"])
+    tab_gestion, tab_mensual = st.tabs(["🔄 Asignar Estado", "📅 Proyección Mensual"])
 
     if not st.session_state.db_oc:
-        st.warning("No hay Órdenes de Compra registradas para gestionar cobros.")
+        st.warning("No hay Órdenes de Compra registradas. Primero creá una en el módulo de Órdenes de Compra.")
     else:
         with tab_gestion:
-            # 1. Seleccionar la OC a gestionar
-            df_oc = pd.DataFrame(st.session_state.db_oc)
-            oc_list = [f"{o['ID']} - {o['Empresa']} ({o['Referencia']})" for o in st.session_state.db_oc]
-            oc_sel_raw = st.selectbox("Seleccioná una Orden de Compra", oc_list)
-            oc_id = oc_sel_raw.split(" - ")[0]
+            # Creamos un diccionario para mapear el texto del selector con el objeto OC real
+            # Esto evita el error StopIteration
+            mapeo_oc = {f"{o['ID']} | {o['Empresa']} ({o['Referencia']})": o for o in st.session_state.db_oc}
             
-            # Obtener datos de la OC seleccionada
-            datos_oc = next(item for item in st.session_state.db_oc if item['ID'] == oc_id)
+            oc_seleccionada_key = st.selectbox("Seleccioná la Orden de Compra para gestionar su cobro:", list(mapeo_oc.keys()))
             
-            # Recuperar estado previo si existe, sino valores por defecto
-            estado_previo = st.session_state.db_cobros.get(oc_id, {
-                "Estado": "En Tiempo",
-                "Fecha_Cobro": datetime.now(),
+            # Extraemos los datos de la OC elegida
+            datos_oc = mapeo_oc[oc_seleccionada_key]
+            oc_id = datos_oc['ID']
+
+            # Buscamos si ya tiene un estado de cobro asignado, sino valores por defecto
+            info_actual = st.session_state.db_cobros.get(oc_id, {
+                "Estado": "En Tiempo", 
+                "Fecha": datetime.now(), 
                 "Notas": ""
             })
 
-            st.write(f"**Monto original:** U$S {datos_oc['Monto']:,.2f} | **Facturación:** {datos_oc.get('Facturación', 'N/A')}")
-            
-            with st.form(f"form_cobro_{oc_id}"):
-                col1, col2 = st.columns(2)
-                nuevo_estado = col1.selectbox("Estado del Cobro", 
-                                            ["En Tiempo", "Cobrado", "En Deuda"],
-                                            index=["En Tiempo", "Cobrado", "En Deuda"].index(estado_previo["Estado"]))
+            st.info(f"💵 **Monto a gestionar:** U$S {datos_oc['Monto']:,.2f}")
+
+            with st.form(f"form_update_cobro_{oc_id}"):
+                c1, c2 = st.columns(2)
+                nuevo_estado = c1.selectbox("Estado del pago", 
+                                          ["En Tiempo", "Cobrado", "En Deuda"], 
+                                          index=["En Tiempo", "Cobrado", "En Deuda"].index(info_actual["Estado"]))
                 
-                fecha_c = col2.date_input("Fecha (de cobro o estimada)", estado_previo["Fecha_Cobro"])
-                notas_c = st.text_input("Nota / Referencia de pago", estado_previo["Notas"])
+                nueva_fecha = c2.date_input("Fecha (Cobro real o estimado)", info_actual["Fecha"])
+                nuevas_notas = st.text_input("Notas de pago", info_actual["Notas"])
                 
-                if st.form_submit_button("Actualizar Estado de Cobro"):
+                if st.form_submit_button("💾 Guardar Estado de Cobro"):
                     st.session_state.db_cobros[oc_id] = {
                         "Estado": nuevo_estado,
-                        "Fecha_Cobro": fecha_c,
-                        "Notas": notas_c,
+                        "Fecha": nueva_fecha,
+                        "Notas": nuevas_notas,
                         "Monto": datos_oc['Monto'],
-                        "Empresa": datos_oc['Empresa']
+                        "Empresa": datos_oc['Empresa'],
+                        "Referencia": datos_oc['Referencia']
                     }
-                    st.success(f"Estado de {oc_id} actualizado a {nuevo_estado}")
+                    st.success(f"Estado de {oc_id} actualizado.")
                     st.rerun()
 
             st.write("---")
-            st.subheader("📊 Resumen de Cobros Actuales")
+            st.subheader("📋 Resumen General de Cobros")
             if st.session_state.db_cobros:
-                # Combinamos datos de OC con datos de Cobros para la tabla
-                data_tabla = []
-                for id_oc, info in st.session_state.db_cobros.items():
-                    data_tabla.append({
-                        "OC": id_oc,
-                        "Empresa": info["Empresa"],
-                        "Monto U$S": info["Monto"],
-                        "Estado": info["Estado"],
-                        "Fecha": info["Fecha_Cobro"],
-                        "Notas": info["Notas"]
-                    })
-                st.dataframe(pd.DataFrame(data_tabla), use_container_width=True)
+                df_resumen = pd.DataFrame(list(st.session_state.db_cobros.values()))
+                # Reordenamos columnas para que sea fácil de leer
+                columnas = ["Empresa", "Monto", "Estado", "Fecha", "Referencia"]
+                st.dataframe(df_resumen[columnas], use_container_width=True)
 
         with tab_mensual:
-            st.subheader("📅 Calendario de Cobros por Mes")
+            st.subheader("📅 Cobros Proyectados por Mes")
             if st.session_state.db_cobros:
-                df_cobros = pd.DataFrame([
-                    {
-                        "Mes": f"{v['Fecha_Cobro'].year}-{v['Fecha_Cobro'].month:02d}",
-                        "Monto": v['Monto'],
-                        "Estado": v['Estado'],
-                        "Empresa": v['Empresa'],
-                        "OC": k
-                    } for k, v in st.session_state.db_cobros.items()
-                ])
+                # Armamos la data para el calendario
+                data_mensual = []
+                for id_oc, info in st.session_state.db_cobros.items():
+                    data_mensual.append({
+                        "Mes": info['Fecha'].strftime("%Y-%m (%B)"),
+                        "Empresa": info['Empresa'],
+                        "Monto": info['Monto'],
+                        "Estado": info['Estado'],
+                        "OC": id_oc
+                    })
                 
-                # Agrupamos por mes para ver totales
-                meses = sorted(df_cobros["Mes"].unique())
-                for mes in meses:
-                    with st.expander(f"📅 Mes: {mes}"):
-                        df_mes = df_cobros[df_cobros["Mes"] == mes]
+                df_m = pd.DataFrame(data_mensual)
+                
+                # Agrupar por mes y mostrar expanders
+                meses_ordenados = sorted(df_m["Mes"].unique())
+                for mes in meses_ordenados:
+                    df_mes = df_m[df_m["Mes"] == mes]
+                    total_mes = df_mes["Monto"].sum()
+                    with st.expander(f"🗓️ {mes} - Total: U$S {total_mes:,.2f}"):
                         st.table(df_mes[["OC", "Empresa", "Monto", "Estado"]])
-                        total_mes = df_mes["Monto"].sum()
-                        st.write(f"**Total proyectado/cobrado en este mes:** U$S {total_mes:,.2f}")
             else:
-                st.info("No hay datos suficientes para generar la proyección mensual.")
+                st.info("No hay cobros programados todavía.")
