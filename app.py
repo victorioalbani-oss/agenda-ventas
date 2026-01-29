@@ -24,10 +24,11 @@ def cargar_datos_nube():
         st.session_state.db_oc = []
 
 def sincronizar(pestaña, datos):
-    # Esta función manda los datos actualizados a Google Sheets
+    # Esta línea convierte la lista de la app en formato para el Excel
     df = pd.DataFrame(datos)
+    # Esta línea manda los datos físicamente a Google Sheets
     conn.update(worksheet=pestaña, data=df)
-    st.toast(f"✅ Sincronizado en la nube: {pestaña}")
+    st.toast(f"✅ Sincronizado en Google Sheets: {pestaña}")
 
 # Inicialización al abrir la app
 if 'db_contactos' not in st.session_state:
@@ -43,24 +44,6 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
     st.rerun()
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
-
-
-
-
-#import streamlit as st
-#import pandas as pd
-#from datetime import datetime
-
-# Configuración de página para Celular y PC
-#st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
-
-# --- INICIALIZACIÓN DE BASES DE DATOS EN MEMORIA ---
-#for key in ['contactos', 'productos', 'bitacora', 'oc', 'items_oc_actual']:
- #   if f'db_{key}' not in st.session_state:
-  #      st.session_state[f'db_{key}'] = []
-#--- NAVEGACIÓN LATERAL ---
-#st.sidebar.title("Menú Principal")
-#opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
 
 # --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
@@ -92,7 +75,7 @@ if opcion == "Productos":
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
             st.button("Descargar Listado PDF (Simulado)")
 
-# --- MÓDULO CONTACTOS (VERSIÓN LIMPIA: 2 TELÉFONOS Y 2 MAILS) ---
+# --- MÓDULO CONTACTOS (VERSIÓN CON SINCRONIZACIÓN A GOOGLE SHEETS) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -120,10 +103,8 @@ elif opcion == "Contactos":
                 web = st.text_input("Página Web")
                 tel1 = st.text_input("Teléfono 1")
                 tel2 = st.text_input("Teléfono 2")
-                # Teléfono 3 eliminado
                 mail1 = st.text_input("Mail 1")
                 mail2 = st.text_input("Mail 2")
-                # Mail 3 eliminado
                 extra = st.text_area("Dato Extra")
             
             if st.form_submit_button("Guardar Contacto"):
@@ -133,13 +114,17 @@ elif opcion == "Contactos":
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                 })
+                
+                # --- GUARDAR EN GOOGLE SHEETS ---
+                sincronizar("contactos", st.session_state.db_contactos)
+                
                 st.success(f"Contacto {cid} guardado.")
                 st.rerun()
 
     with t2:
         if st.session_state.db_contactos:
             df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            st.dataframe(df_contactos[["N°", "Empresa", "Actividad", "País", "Ciudad", "T1"]], use_container_width=True)
+            st.dataframe(df_contactos, use_container_width=True)
         else:
             st.info("No hay contactos en la lista.")
 
@@ -172,33 +157,38 @@ elif opcion == "Contactos":
                     st.session_state.db_contactos[idx].update({
                         "Empresa": new_nom, "Actividad": new_act, "País": new_pais,
                         "Ciudad": new_ciudad, "Maps": new_maps, "T1": new_tel1,
-                        "T2": new_tel2, "M1": new_mail1, "M2": new_mail2,
+                        "T2": new_tel2, "M1": new_mail1, "M2": mail2,
                         "Web": new_web, "Extra": new_extra
                     })
 
-                    # EFECTO CASCADA
                     if new_nom != nombre_viejo:
                         for reg in st.session_state.db_bitacora:
                             if reg['Empresa'] == nombre_viejo: reg['Empresa'] = new_nom
                         for oc in st.session_state.db_oc:
                             if oc['Empresa'] == nombre_viejo: oc['Empresa'] = new_nom
                     
+                    # --- ACTUALIZAR EN GOOGLE SHEETS ---
+                    sincronizar("contactos", st.session_state.db_contactos)
+
                     st.success("¡Información actualizada!")
                     st.rerun()
+        else:
+            st.info("Cargá una empresa para editar.")
 
-    # (La lógica de las pestañas de seguimiento queda igual abajo)
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         if st.session_state.db_contactos:
             nombres_totales = [c['Empresa'] for c in st.session_state.db_contactos]
             col_add, col_btn = st.columns([3, 1])
             with col_add:
-                emp_a_agregar = st.selectbox(f"Seleccionar empresa para {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
+                emp_a_agregar = st.selectbox(f"Seleccionar para {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
             with col_btn:
                 st.write("##")
                 if st.button("➕ Añadir", key=f"btn_add_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
+                        # También sincronizamos las listas si querés que se guarden
+                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
                         st.rerun()
 
         lista = st.session_state[lista_key]
@@ -207,8 +197,9 @@ elif opcion == "Contactos":
                 with st.expander(f"🏢 {emp_nombre}"):
                     datos = next((i for i in st.session_state.db_contactos if i['Empresa'] == emp_nombre), None)
                     if datos: st.write(f"**Actividad:** {datos['Actividad']} | **Tel:** {datos['T1']}")
-                    if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
+                    if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
+                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
                         st.rerun()
 
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
