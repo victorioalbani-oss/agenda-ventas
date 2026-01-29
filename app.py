@@ -342,90 +342,88 @@ elif opcion == "Bitácora":
             st.info("No hay registros todavía.")
 
 
-# --- MÓDULO COBROS (CORREGIDO Y OPTIMIZADO) ---
+# --- MÓDULO COBROS (ACTUALIZAR Y ELIMINAR) ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
     
-    # Inicialización segura
     if "db_cobros" not in st.session_state:
         st.session_state.db_cobros = {}
 
-    tab_gestion, tab_mensual = st.tabs(["🔄 Asignar Estado", "📅 Proyección Mensual"])
+    tab_gestion, tab_mensual = st.tabs(["🔄 Actualizar Estado", "📅 Proyección Mensual"])
 
     if not st.session_state.db_oc:
-        st.warning("No hay Órdenes de Compra registradas. Primero creá una en el módulo de Órdenes de Compra.")
+        st.warning("Primero creá una Orden de Compra en el módulo correspondiente.")
     else:
         with tab_gestion:
-            # Creamos un diccionario para mapear el texto del selector con el objeto OC real
-            # Esto evita el error StopIteration
-            mapeo_oc = {f"{o['ID']} | {o['Empresa']} ({o['Referencia']})": o for o in st.session_state.db_oc}
+            # Diccionario para seleccionar la OC
+            mapeo_oc = {f"{o['ID']} | {o['Empresa']}": o for o in st.session_state.db_oc}
+            oc_seleccionada_key = st.selectbox("Seleccioná OC para modificar o eliminar:", list(mapeo_oc.keys()))
             
-            oc_seleccionada_key = st.selectbox("Seleccioná la Orden de Compra para gestionar su cobro:", list(mapeo_oc.keys()))
-            
-            # Extraemos los datos de la OC elegida
             datos_oc = mapeo_oc[oc_seleccionada_key]
             oc_id = datos_oc['ID']
 
-            # Buscamos si ya tiene un estado de cobro asignado, sino valores por defecto
+            # Cargar datos actuales si existen
             info_actual = st.session_state.db_cobros.get(oc_id, {
                 "Estado": "En Tiempo", 
                 "Fecha": datetime.now(), 
                 "Notas": ""
             })
 
-            st.info(f"💵 **Monto a gestionar:** U$S {datos_oc['Monto']:,.2f}")
+            st.markdown(f"### Gestión: {oc_id}")
+            st.write(f"**Empresa:** {datos_oc['Empresa']} | **Monto:** U$S {datos_oc['Monto']:,.2f}")
 
-            with st.form(f"form_update_cobro_{oc_id}"):
+            with st.form(f"form_cobro_{oc_id}"):
                 c1, c2 = st.columns(2)
-                nuevo_estado = c1.selectbox("Estado del pago", 
-                                          ["En Tiempo", "Cobrado", "En Deuda"], 
+                nuevo_estado = c1.selectbox("Estado", ["En Tiempo", "Cobrado", "En Deuda"], 
                                           index=["En Tiempo", "Cobrado", "En Deuda"].index(info_actual["Estado"]))
+                nueva_fecha = c2.date_input("Fecha de Cobro (Real o Estimada)", info_actual["Fecha"])
+                nuevas_notas = st.text_input("Notas adicionales", info_actual["Notas"])
                 
-                nueva_fecha = c2.date_input("Fecha (Cobro real o estimado)", info_actual["Fecha"])
-                nuevas_notas = st.text_input("Notas de pago", info_actual["Notas"])
-                
-                if st.form_submit_button("💾 Guardar Estado de Cobro"):
+                col_btn1, col_btn2 = st.columns(2)
+                guardar = col_btn1.form_submit_button("💾 ACTUALIZAR / COBRAR")
+                # Botón de eliminar dentro del formulario por estructura de Streamlit
+                eliminar = col_btn2.form_submit_button("🗑️ ELIMINAR COBRO")
+
+                if guardar:
                     st.session_state.db_cobros[oc_id] = {
                         "Estado": nuevo_estado,
                         "Fecha": nueva_fecha,
                         "Notas": nuevas_notas,
                         "Monto": datos_oc['Monto'],
-                        "Empresa": datos_oc['Empresa'],
-                        "Referencia": datos_oc['Referencia']
+                        "Empresa": datos_oc['Empresa']
                     }
-                    st.success(f"Estado de {oc_id} actualizado.")
+                    st.success(f"¡Orden {oc_id} actualizada a {nuevo_estado}!")
                     st.rerun()
+                
+                if eliminar:
+                    if oc_id in st.session_state.db_cobros:
+                        del st.session_state.db_cobros[oc_id]
+                        st.warning(f"Se eliminó el registro de cobro de {oc_id}.")
+                        st.rerun()
+                    else:
+                        st.error("Esta orden no tenía un cobro asignado aún.")
 
             st.write("---")
-            st.subheader("📋 Resumen General de Cobros")
+            st.subheader("📋 Planilla General de Cobranzas")
             if st.session_state.db_cobros:
                 df_resumen = pd.DataFrame(list(st.session_state.db_cobros.values()))
-                # Reordenamos columnas para que sea fácil de leer
-                columnas = ["Empresa", "Monto", "Estado", "Fecha", "Referencia"]
-                st.dataframe(df_resumen[columnas], use_container_width=True)
+                st.dataframe(df_resumen[["Empresa", "Monto", "Estado", "Fecha"]], use_container_width=True)
 
         with tab_mensual:
-            st.subheader("📅 Cobros Proyectados por Mes")
+            st.subheader("📅 Cobros por Mes")
             if st.session_state.db_cobros:
-                # Armamos la data para el calendario
-                data_mensual = []
-                for id_oc, info in st.session_state.db_cobros.items():
-                    data_mensual.append({
-                        "Mes": info['Fecha'].strftime("%Y-%m (%B)"),
-                        "Empresa": info['Empresa'],
-                        "Monto": info['Monto'],
-                        "Estado": info['Estado'],
-                        "OC": id_oc
+                data_m = []
+                for k, v in st.session_state.db_cobros.items():
+                    data_m.append({
+                        "Mes": v['Fecha'].strftime("%Y-%m"),
+                        "Empresa": v['Empresa'],
+                        "Monto": v['Monto'],
+                        "Estado": v['Estado'],
+                        "OC": k
                     })
-                
-                df_m = pd.DataFrame(data_mensual)
-                
-                # Agrupar por mes y mostrar expanders
-                meses_ordenados = sorted(df_m["Mes"].unique())
-                for mes in meses_ordenados:
-                    df_mes = df_m[df_m["Mes"] == mes]
-                    total_mes = df_mes["Monto"].sum()
-                    with st.expander(f"🗓️ {mes} - Total: U$S {total_mes:,.2f}"):
-                        st.table(df_mes[["OC", "Empresa", "Monto", "Estado"]])
+                df_m = pd.DataFrame(data_m)
+                for mes in sorted(df_m["Mes"].unique()):
+                    with st.expander(f"🗓️ Mes {mes}"):
+                        st.table(df_m[df_m["Mes"] == mes][["OC", "Empresa", "Monto", "Estado"]])
             else:
-                st.info("No hay cobros programados todavía.")
+                st.info("No hay datos de cobros.")
