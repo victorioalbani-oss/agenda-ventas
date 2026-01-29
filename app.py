@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from fpdf import FPDF
 from datetime import datetime
 
 # Configuración de página para Celular y PC
@@ -294,11 +295,10 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA (VERSIÓN ROBUSTA Y SINCRONIZADA) ---
+# --- MÓDULO BITÁCORA (CON DESCARGA PDF INTEGRADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
-    # Asegurar que la base existe
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
@@ -308,60 +308,90 @@ elif opcion == "Bitácora":
         if not st.session_state.db_contactos:
             st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
         else:
-            with st.form("form_bitacora_nueva", clear_on_submit=True):
-                # Usamos los nombres actuales de la DB de contactos
+            with st.form("form_bit", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
-                fecha_b = st.date_input("Fecha de la Gestión", datetime.now())
-                # Usamos 'Gestion' como nombre de columna para que coincida con el Historial Integral
-                detalle_b = st.text_area("¿Qué se gestionó? (Detalle)")
+                fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
+                cont = st.text_area("Detalle de la actividad")
                 
-                if st.form_submit_button("Cargar en Bitácora"):
+                if st.form_submit_button("Cargar Bitácora"):
                     st.session_state.db_bitacora.append({
-                        "Fecha": fecha_b, 
-                        "Empresa": emp_b, 
-                        "Gestion": detalle_b
+                        "Fecha Realizada": fecha_realizada,
+                        "Empresa": emp_b,
+                        "Detalle": cont
                     })
-                    st.success(f"✅ Registro guardado para {emp_b}")
+                    st.success("Registro guardado exitosamente.")
                     st.rerun()
 
     with b2:
-        st.subheader("🔎 Buscador de Gestiones")
+        st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
+            df_bit["Fecha Realizada"] = pd.to_datetime(df_bit["Fecha Realizada"]).dt.date
             
-            # Limpieza de fechas para que el filtro no falle
-            df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
-            
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                # El filtro se alimenta de las empresas que REALMENTE tienen bitácora
-                empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso)
-            with col_f2:
-                rango = st.date_input("Rango de fechas", value=[])
+            c_f1, c_f2 = st.columns(2)
+            with c_f1:
+                empresas_bit = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
+                f_emp = st.selectbox("Filtrar por Empresa", empresas_bit)
+            with c_f2:
+                rango_fechas = st.date_input("Seleccionar Rango de Fechas", value=[])
 
-            # Lógica de filtrado
+            # Lógica de Filtros
             df_filtrado = df_bit.copy()
             if f_emp != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            
-            if len(rango) == 2:
-                df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
+            if len(rango_fechas) == 2:
+                df_filtrado = df_filtrado[(df_filtrado["Fecha Realizada"] >= rango_fechas[0]) & (df_filtrado["Fecha Realizada"] <= rango_fechas[1])]
 
-            # Muestra de tabla (Solo columnas que existan para evitar KeyError)
-            cols_visibles = [c for c in ["Fecha", "Empresa", "Gestion"] if c in df_filtrado.columns]
-            st.dataframe(df_filtrado[cols_visibles], use_container_width=True)
+            st.dataframe(df_filtrado, use_container_width=True)
             
             st.write("---")
-            # Botones de gestión de datos
-            if st.button("🗑️ Eliminar último registro"):
-                if len(st.session_state.db_bitacora) > 0:
-                    st.session_state.db_bitacora.pop()
-                    st.rerun()
-        else:
-            st.info("La bitácora está vacía. Agregá tu primera gestión arriba.")
+            col_acc1, col_acc2 = st.columns(2)
 
+            with col_acc1:
+                if not df_filtrado.empty:
+                    # --- GENERACIÓN DE PDF ---
+                    try:
+                        from fpdf import FPDF
+                        pdf = FPDF()
+                        pdf.add_page()
+                        pdf.set_font("Arial", "B", 16)
+                        pdf.cell(0, 10, f"HISTORIAL DE BITACORA - {f_emp}", ln=True, align="C")
+                        pdf.ln(10)
+                        
+                        # Encabezados de tabla
+                        pdf.set_font("Arial", "B", 10)
+                        pdf.set_fill_color(230, 230, 230)
+                        pdf.cell(35, 8, "Fecha", 1, 0, 'C', True)
+                        pdf.cell(155, 8, "Detalle de Gestion", 1, 1, 'C', True)
+                        
+                        # Filas de datos
+                        pdf.set_font("Arial", "", 9)
+                        for _, row in df_filtrado.iterrows():
+                            # Limpieza de caracteres para PDF básico
+                            txt = str(row['Detalle']).encode('latin-1', 'ignore').decode('latin-1')
+                            pdf.cell(35, 8, str(row['Fecha Realizada']), 1)
+                            pdf.multi_cell(155, 8, txt, 1)
+                        
+                        pdf_bytes = pdf.output()
+                        st.download_button(
+                            label="📥 Descargar Historial en PDF",
+                            data=pdf_bytes,
+                            file_name=f"Bitacora_{f_emp}.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
+                    except Exception as e:
+                        st.error(f"Error al crear PDF: {e}. Asegúrate de tener 'fpdf2' en requirements.txt")
+                
+            with col_acc2:
+                if st.button("🗑️ Eliminar último registro"):
+                    if len(st.session_state.db_bitacora) > 0:
+                        st.session_state.db_bitacora.pop()
+                        st.rerun()
+        else:
+            st.info("No hay registros todavía.")
+            
 # --- MÓDULO COBROS (CON ID Y REFERENCIA EN PESTAÑAS DE ESTADO) ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
