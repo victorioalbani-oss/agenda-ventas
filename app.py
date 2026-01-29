@@ -10,43 +10,43 @@ st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar_datos_nube():
-    # Cargamos cada pestaña de forma independiente para evitar que una vacía rompa todo
+    # Cargamos cada pestaña de forma independiente para que una vacía no rompa el resto
     
     # Contactos
     try:
-        df_c = conn.read(worksheet="contactos")
+        df_c = conn.read(worksheet="contactos", ttl=0) # ttl=0 obliga a leer datos frescos
         st.session_state.db_contactos = df_c.dropna(how="all").to_dict('records')
-    except:
+    except Exception:
         st.session_state.db_contactos = []
 
     # Productos
     try:
-        df_p = conn.read(worksheet="productos")
+        df_p = conn.read(worksheet="productos", ttl=0)
         st.session_state.db_productos = df_p.dropna(how="all").to_dict('records')
-    except:
+    except Exception:
         st.session_state.db_productos = []
 
     # Bitácora
     try:
-        df_b = conn.read(worksheet="bitacora")
+        df_b = conn.read(worksheet="bitacora", ttl=0)
         st.session_state.db_bitacora = df_b.dropna(how="all").to_dict('records')
-    except:
+    except Exception:
         st.session_state.db_bitacora = []
 
     # Órdenes de Compra
     try:
-        df_oc = conn.read(worksheet="oc")
+        df_oc = conn.read(worksheet="oc", ttl=0)
         st.session_state.db_oc = df_oc.dropna(how="all").to_dict('records')
-    except:
+    except Exception:
         st.session_state.db_oc = []
 
 def sincronizar(pestaña, datos):
-    if datos: # Solo sincroniza si hay información
+    if datos: # Solo intenta guardar si hay datos reales
         df = pd.DataFrame(datos)
         conn.update(worksheet=pestaña, data=df)
-        st.toast(f"✅ Sincronizado en Google Sheets: {pestaña}")
+        st.toast(f"✅ Sincronizado: {pestaña}")
 
-# Inicialización al abrir la app
+# Inicialización al abrir la app (Solo se ejecuta una vez)
 if 'db_contactos' not in st.session_state:
     cargar_datos_nube()
 
