@@ -443,100 +443,90 @@ elif opcion == "Cobros":
 
 from fpdf import FPDF
 
-# --- MÓDULO HISTORIAL INTEGRAL (REPARADO Y CON DÓLAR) ---
+# --- MÓDULO HISTORIAL INTEGRAL (DESCARGA DIRECTA) ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Informe Integral de Empresa")
     
     if not st.session_state.db_contactos:
-        st.warning("No hay contactos cargados.")
+        st.warning("No hay contactos registrados.")
     else:
-        nombres_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
-        empresa_sel = st.selectbox("🔍 Seleccioná la empresa para el reporte completo:", nombres_empresas)
-        c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_sel), None)
+        # 1. Buscador
+        lista_nombres = sorted(list(set([c['Empresa'] for c in st.session_state.db_contactos])))
+        empresa_f = st.selectbox("🔍 Seleccioná la empresa para el reporte:", lista_nombres)
+        c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
         if c:
-            # 1. Preparar datos de Bitácora
+            # 2. Filtrar Datos
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            filtro_bit = df_bit[df_bit['Empresa'] == empresa_sel] if not df_bit.empty else pd.DataFrame()
+            filtro_bit = df_bit[df_bit['Empresa'] == empresa_f] if not df_bit.empty else pd.DataFrame()
 
-            # 2. Preparar datos de OC con Dólar a la izquierda
             df_oc = pd.DataFrame(st.session_state.db_oc)
             if not df_oc.empty:
-                df_oc_f = df_oc[df_oc['Empresa'] == empresa_sel]
-                # Reordenamos: Dólar antes que Monto
-                cols_oc = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-                filtro_oc = df_oc_f[[col for col in cols_oc if col in df_oc_f.columns]]
+                df_oc_f = df_oc[df_oc['Empresa'] == empresa_f]
+                # Reordenamos columnas: Dólar a la izquierda de Monto
+                cols_orden = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
+                filtro_oc = df_oc_f[[col for col in cols_orden if col in df_oc_f.columns]]
             else:
                 filtro_oc = pd.DataFrame()
 
             st.write("---")
             
-            # 3. Botón para Generar y Descargar PDF Directo
-            if st.button("📥 GENERAR Y DESCARGAR PDF", use_container_width=True, type="primary"):
-                try:
-                    from fpdf import FPDF
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font("Arial", "B", 16)
-                    pdf.cell(0, 10, f"INFORME INTEGRAL: {empresa_sel}", ln=True, align="C")
-                    pdf.ln(5)
+            # --- CONSTRUCCIÓN DEL REPORTE PARA DESCARGA ---
+            # Este HTML es el que se convierte en archivo
+            html_descarga = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
+                    .header {{ border: 2px solid #1f77b4; padding: 20px; border-radius: 8px; text-align: center; }}
+                    h1 {{ color: #1f77b4; margin: 0; }}
+                    h3 {{ background-color: #f2f2f2; padding: 8px; border-left: 5px solid #1f77b4; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }}
+                    th {{ background-color: #f8f9fa; }}
+                    .total {{ text-align: right; font-size: 16px; font-weight: bold; margin-top: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>INFORME INTEGRAL</h1>
+                    <p>Empresa: <b>{empresa_f}</b> | Fecha de emisión: {datetime.now().strftime('%d/%m/%Y')}</p>
+                </div>
+                
+                <h3>1. Datos de Contacto</h3>
+                <p><b>ID:</b> {c['N°']} | <b>Actividad:</b> {c['Actividad']}</p>
+                <p><b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
+                <p><b>Teléfonos:</b> {c['T1']} / {c.get('T2','')} / {c.get('T3','')}</p>
+                <p><b>Mails:</b> {c['M1']} / {c.get('M2','')} / {c.get('M3','')}</p>
+                <p><b>Web:</b> {c.get('Web','N/A')}</p>
+                <p><b>Extra:</b> {c.get('Extra','N/A')}</p>
 
-                    # Sección Contacto
-                    pdf.set_font("Arial", "B", 12)
-                    pdf.cell(0, 10, "1. DATOS DE CONTACTO", ln=True)
-                    pdf.set_font("Arial", "", 10)
-                    info_contacto = f"Actividad: {c['Actividad']}\nUbicacion: {c['Ciudad']}, {c['País']}\nTel: {c['T1']} / {c.get('T2','')}\nEmail: {c['M1']}"
-                    pdf.multi_cell(0, 6, info_contacto)
-                    pdf.ln(5)
+                <h3>2. Historial de Bitácora</h3>
+                {filtro_bit[['Fecha', 'Gestion', 'Observaciones']].to_html(index=False) if not filtro_bit.empty else '<p>Sin registros.</p>'}
 
-                    # Sección Bitácora
-                    pdf.set_font("Arial", "B", 12)
-                    pdf.cell(0, 10, "2. HISTORIAL DE BITACORA", ln=True)
-                    pdf.set_font("Arial", "", 9)
-                    if not filtro_bit.empty:
-                        for _, row in filtro_bit.iterrows():
-                            pdf.multi_cell(0, 5, f"- {row['Fecha']}: {row['Gestion']} | {row['Observaciones']}")
-                    else:
-                        pdf.cell(0, 10, "Sin registros.", ln=True)
-                    pdf.ln(5)
+                <h3>3. Historial de Órdenes de Compra</h3>
+                {filtro_oc.to_html(index=False) if not filtro_oc.empty else '<p>Sin registros.</p>'}
+                
+                <div class="total">
+                    Total Facturado Acumulado: U$S {filtro_oc['Monto'].sum() if not filtro_oc.empty else 0:,.2f}
+                </div>
+            </body>
+            </html>
+            """
 
-                    # Sección Órdenes de Compra
-                    pdf.set_font("Arial", "B", 12)
-                    pdf.cell(0, 10, "3. ORDENES DE COMPRA", ln=True)
-                    if not filtro_oc.empty:
-                        pdf.set_font("Arial", "B", 8)
-                        # Encabezados de tabla
-                        pdf.cell(20, 7, "ID", 1)
-                        pdf.cell(30, 7, "Fecha", 1)
-                        pdf.cell(30, 7, "Dolar", 1) # Dólar a la izquierda
-                        pdf.cell(30, 7, "Monto", 1)
-                        pdf.cell(30, 7, "Fact.", 1)
-                        pdf.ln()
-                        pdf.set_font("Arial", "", 8)
-                        for _, row in filtro_oc.iterrows():
-                            pdf.cell(20, 7, str(row['ID']), 1)
-                            pdf.cell(30, 7, str(row['Fecha']), 1)
-                            pdf.cell(30, 7, str(row.get('Dólar', '-')), 1)
-                            pdf.cell(30, 7, f"{row['Monto']:,.2f}", 1)
-                            pdf.cell(30, 7, str(row.get('Facturación', '-')), 1)
-                            pdf.ln()
-                    else:
-                        pdf.cell(0, 10, "Sin órdenes.", ln=True)
+            # 3. Botón de Descarga Directa
+            st.download_button(
+                label="📥 DESCARGAR INFORME COMPLETO",
+                data=html_descarga,
+                file_name=f"Informe_{empresa_f}_{datetime.now().strftime('%Y%m%d')}.html",
+                mime="text/html",
+                use_container_width=True,
+                type="primary"
+            )
 
-                    # Descarga directa
-                    st.download_button(
-                        label="🔥 Click aquí para guardar el PDF",
-                        data=pdf.output(),
-                        file_name=f"Reporte_{empresa_sel}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
-                except Exception as e:
-                    st.error(f"Error al generar PDF: {e}. Asegúrate de tener 'fpdf2' en requirements.txt")
-
-            # Vista en pantalla
+            # Vista rápida en pantalla
             st.write("---")
-            st.subheader(f"Datos de {empresa_sel}")
-            st.write(f"🏠 {c['Ciudad']} | 💼 {c['Actividad']}")
+            st.subheader(f"Resumen en pantalla: {empresa_f}")
+            st.write(f"💼 {c['Actividad']} | 📍 {c['Ciudad']} | 📱 {c['T1']}")
             if not filtro_oc.empty:
-                st.dataframe(filtro_oc, use_container_width=True)
+                st.metric("Ventas Totales", f"U$S {filtro_oc['Monto'].sum():,.2f}")
