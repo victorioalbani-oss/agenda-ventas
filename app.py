@@ -257,8 +257,66 @@ elif opcion == "Contactos":
 
     with t2:
         if st.session_state.db_contactos:
+            st.subheader("🔍 Buscador de Contactos")
             df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            st.dataframe(df_contactos, use_container_width=True)
+
+            # --- FILTROS EN COLUMNAS ---
+            c_f1, c_f2, c_f3 = st.columns(3)
+            with c_f1:
+                f_empresa = st.text_input("🏢 Empresa", placeholder="Buscar nombre...")
+                # Actividad: Tomamos valores únicos del DF
+                lista_act = ["Todas"] + sorted(list(df_contactos["Actividad"].unique())) if "Actividad" in df_contactos.columns else ["Todas"]
+                f_actividad = st.selectbox("🛠️ Actividad", lista_act)
+            
+            with c_f2:
+                # País: Tomamos valores únicos
+                lista_pais = ["Todos"] + sorted(list(df_contactos["País"].unique())) if "País" in df_contactos.columns else ["Todos"]
+                f_pais = st.selectbox("🌎 País", lista_pais)
+                
+                # Provincia: Tomamos valores únicos
+                lista_prov = ["Todas"] + sorted(list(df_contactos["Provincia"].unique())) if "Provincia" in df_contactos.columns else ["Todas"]
+                f_prov = st.selectbox("📍 Provincia", lista_prov)
+            
+            with c_f3:
+                f_ciudad = st.text_input("🏙️ Ciudad", placeholder="Buscar ciudad...")
+
+            # --- LÓGICA DE FILTRADO ---
+            df_filtrado = df_contactos.copy()
+
+            if f_empresa:
+                df_filtrado = df_filtrado[df_filtrado["Empresa"].str.contains(f_empresa, case=False, na=False)]
+            
+            if f_actividad != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Actividad"] == f_actividad]
+            
+            if f_pais != "Todos":
+                df_filtrado = df_filtrado[df_filtrado["País"] == f_pais]
+                
+            if f_prov != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Provincia"] == f_prov]
+
+            if f_ciudad:
+                df_filtrado = df_filtrado[df_filtrado["Ciudad"].str.contains(f_ciudad, case=False, na=False)]
+
+            st.write("---")
+            
+            # --- MOSTRAR RESULTADOS ---
+            num_res = len(df_filtrado)
+            if num_res > 0:
+                st.write(f"📊 Mostrando **{num_res}** contactos encontrados:")
+                st.dataframe(df_filtrado, use_container_width=True)
+                
+                # Botón de descarga para los datos filtrados
+                csv_filt = df_filtrado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Descargar esta lista filtrada (CSV)",
+                    data=csv_filt,
+                    file_name="contactos_filtrados.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.warning("❌ No se encontraron contactos con esos filtros.")
         else:
             st.info("No hay contactos en la lista.")
 
