@@ -11,22 +11,28 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 3. Función para cargar TODO desde Google Sheets
 def cargar_datos_nube():
-    # Mapeamos CADA pestaña de tu imagen con su variable en la app
     mapeo = {
         "contactos": "db_contactos",
         "productos": "db_productos",
         "bitacora": "db_bitacora",
         "oc": "db_oc",
         "cobros": "db_cobros",
-        "Empresa": "db_historial_empresa" # Respetamos la E mayúscula de tu pestaña
+        "Empresa": "db_historial_empresa"
     }
     
     for hoja, sesion in mapeo.items():
         try:
             df = conn.read(worksheet=hoja, ttl=0)
-            st.session_state[sesion] = df.dropna(how="all").to_dict('records')
+            datos = df.dropna(how="all").to_dict('records')
+            
+            # --- EL ARREGLO PARA COBROS ESTÁ ACÁ ---
+            if hoja == "cobros":
+                st.session_state[sesion] = {str(item['OC_ID']): item for item in datos if 'OC_ID' in item}
+            else:
+                st.session_state[sesion] = datos
         except Exception:
-            st.session_state[sesion] = []
+            # Si falla cobros, iniciamos diccionario vacío, sino lista vacía
+            st.session_state[sesion] = {} if hoja == "cobros" else []
 
 # 4. Función para subir datos
 def sincronizar(pestaña, datos):
@@ -471,9 +477,11 @@ elif opcion == "Cobros":
                         "Monto": datos_oc['Monto'],
                         "Empresa": datos_oc['Empresa']
                     }
+                    
+                    # MANDAR A LA NUBE (Convertimos de vuelta a lista para el Sheets)
                     sincronizar("cobros", list(st.session_state.db_cobros.values()))
                     
-                    st.success("✅ Cobro actualizado en la nube")
+                    st.success("✅ Cobro actualizado")
                     st.rerun()
                 
                 if col_btn2.form_submit_button("🗑️ ELIMINAR COBRO"):
