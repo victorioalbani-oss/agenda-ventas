@@ -130,14 +130,12 @@ elif opcion == "Contactos":
                     "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                     "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                 }
-                # Primero guardamos en la memoria de la app
                 st.session_state.db_contactos.append(nuevo)
                 
-                # REGLA DE ORO: La línea de abajo DEBE estar alineada con el append
-                # para que SOLO se ejecute cuando apretás el botón.
+                # ESTA LÍNEA ES LA ÚNICA QUE DEBE EXISTIR Y DEBE ESTAR AQUÍ:
                 sincronizar("contactos", st.session_state.db_contactos)
                 
-                st.success(f"Contacto {cid} guardado en la nube.")
+                st.success(f"Contacto {cid} guardado.")
                 st.rerun()
 
     with t2:
