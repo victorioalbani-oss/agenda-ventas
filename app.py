@@ -4,7 +4,7 @@ from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
 # 1. Configuración de página
-st.set_page_config(page_title="Vico S.A.", layout="wide")
+st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
