@@ -351,15 +351,21 @@ elif opcion == "Bitácora":
                 cont = st.text_area("Detalle de la gestión") # Esto se guardará en la columna 'Gestion'
                 
                 if st.form_submit_button("Cargar Bitácora"):
-                    st.session_state.db_bitacora.append({
-                        "Fecha": fecha_realizada, 
+                    # 1. Creamos el nuevo registro (convertimos la fecha a texto para que Google no se queje)
+                    nuevo_registro = {
+                        "Fecha": str(fecha_realizada), 
                         "Empresa": emp_b, 
-                        "Gestion": cont # Cambiado de 'Detalle' a 'Gestion' para que lo lea el Historial Global
-                    })
+                        "Gestion": cont 
+                    }
+                    
+                    # 2. Agregamos a la memoria de la App
+                    st.session_state.db_bitacora.append(nuevo_registro)
+                    
+                    # 3. LA LÍNEA CLAVE: Mandamos toda la lista a Google Sheets
                     sincronizar("bitacora", st.session_state.db_bitacora)
                     
                     st.success(f"✅ Registro guardado para {emp_b}")
-                    st.rerun()
+                    st.rerun() # Esto limpia el formulario para el próximo registro
 
     with b2:
         st.subheader("🔎 Historial de Gestiones")
