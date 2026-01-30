@@ -471,6 +471,10 @@ elif opcion == "Cobros":
                         "Monto": datos_oc['Monto'],
                         "Empresa": datos_oc['Empresa']
                     }
+                    # --- AGREGÁ ESTA LÍNEA JUSTO ACÁ ---
+                    sincronizar("cobros", list(st.session_state.db_cobros.values()))
+                    # ----------------------------------
+
                     st.rerun()
                 
                 if col_btn2.form_submit_button("🗑️ ELIMINAR COBRO"):
