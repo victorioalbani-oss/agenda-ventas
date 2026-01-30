@@ -184,7 +184,7 @@ elif opcion == "Contactos":
                         "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                         }
                 # 1. Guarda en la memoria de la app
-                    st.session_state.db_contactos.append(nuevo)
+                    st.session_state.db_contactos[idx] = nuevo
                 
                 # 2. SOLO AQUÍ va la sincronización (alineada con el append)
                     sincronizar("contactos", st.session_state.db_contactos)
@@ -331,6 +331,7 @@ elif opcion == "Órdenes de Compra":
                     if st.button("Confirmar Borrado"):
                         if id_a_borrar != "Ninguno":
                             st.session_state.db_oc = [o for o in st.session_state.db_oc if o["ID"] != id_a_borrar]
+                            sincronizar("oc", st.session_state.db_oc)
                             st.rerun()
             else:
                 st.info("No hay órdenes.")
@@ -413,6 +414,7 @@ elif opcion == "Bitácora":
             if st.button("🗑️ Eliminar último registro cargado"):
                 if len(st.session_state.db_bitacora) > 0:
                     st.session_state.db_bitacora.pop()
+                    sincronizar("bitacora", st.session_state.db_bitacora)
                     st.rerun()
         else:
             st.info("La bitácora está vacía.")
@@ -487,6 +489,7 @@ elif opcion == "Cobros":
                 if col_btn2.form_submit_button("🗑️ ELIMINAR COBRO"):
                     if oc_id in st.session_state.db_cobros:
                         del st.session_state.db_cobros[oc_id]
+                        sincronizar("cobros", list(st.session_state.db_cobros.values()))
                         st.rerun()
 
             st.write("---")
