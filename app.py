@@ -465,7 +465,7 @@ elif opcion == "Cobros":
                         "OC_ID": oc_id,
                         "Referencia": oc_ref,
                         "Estado": nuevo_estado,
-                        "Fecha": nueva_fecha,
+                        "Fecha": str(nueva_fecha),
                         "Notas": nuevas_notas,
                         "Dólar": datos_oc.get('Dólar', 0),
                         "Monto": datos_oc['Monto'],
