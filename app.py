@@ -9,6 +9,42 @@ st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- INICIO DEL BLOQUE DE LOGIN (PONELO ACÁ) ---
+def login_nube():
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+
+    if not st.session_state.autenticado:
+        st.markdown("<h1 style='text-align: center;'>🔐 Acceso al CRM</h1>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            with st.form("login_form"):
+                user_input = st.text_input("Usuario")
+                pass_input = st.text_input("Contraseña", type="password")
+                submit = st.form_submit_button("Entrar", use_container_width=True)
+                
+                if submit:
+                    try:
+                        # Buscamos en la pestaña 'credenciales' del Sheets
+                        df_creds = conn.read(worksheet="credenciales", ttl=0)
+                        valido = df_creds[(df_creds['usuario'] == user_input) & 
+                                          (df_creds['clave'].astype(str) == str(pass_input))]
+                        
+                        if not valido.empty:
+                            st.session_state.autenticado = True
+                            st.rerun()
+                        else:
+                            st.error("Usuario o contraseña incorrectos")
+                    except Exception as e:
+                        st.error("Error: No se pudo verificar la pestaña 'credenciales' en Google Sheets.")
+        return False
+    return True
+
+# Verificamos login antes de seguir con el resto del código
+if not login_nube():
+    st.stop() 
+# --- FIN DEL BLOQUE DE LOGIN ---
+
 # 3. Función para cargar TODO desde Google Sheets
 def cargar_datos_nube():
     mapeo = {
