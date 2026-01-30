@@ -173,20 +173,20 @@ elif opcion == "Contactos":
                     new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
                 
                 if st.form_submit_button("Guardar Contacto"):
-                cid = f"C - {len(st.session_state.db_contactos) + 1}"
-                nuevo = {
-                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
-                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
-                }
+                    cid = f"C - {len(st.session_state.db_contactos) + 1}"
+                    nuevo = {
+                        "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
+                        "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
+                        "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
+                        }
                 # 1. Guarda en la memoria de la app
-                st.session_state.db_contactos.append(nuevo)
+                    st.session_state.db_contactos.append(nuevo)
                 
                 # 2. SOLO AQUÍ va la sincronización (alineada con el append)
-                sincronizar("contactos", st.session_state.db_contactos)
+                    sincronizar("contactos", st.session_state.db_contactos)
                 
-                st.success(f"Contacto {cid} guardado en la nube.")
-                st.rerun()
+                    st.success(f"Contacto {cid} guardado en la nube.")
+                    st.rerun()
 
     # --- LISTAS DE SEGUIMIENTO ---
     def render_lista_seguimiento(titulo, lista_key):
