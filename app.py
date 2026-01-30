@@ -668,7 +668,7 @@ elif opcion == "Historial Empresas":
                 st.write(f"**Google Maps:** {c.get('Maps', 'N/A')}")
             with col_inf2:
                 st.write(f"**Web:** {c.get('Web', 'N/A')}")
-                st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')} / {c.get('T3','')}")
+                st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')}")
                 st.write(f"**Mails:** {c['M1']} / {c.get('M2','')}")
                 st.write(f"**Dato Extra:** {c.get('Extra', 'N/A')}")
 
