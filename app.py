@@ -79,8 +79,10 @@ if opcion == "Productos":
                     "N°": aid, "Nombre": n_art, "Dimensiones": dims, 
                     "Tejido": tej, "U$S": precio, "Cant/Pallet": cant_pal, "Peso/Pallet": peso_pal
                 })
+                sincronizar("productos", st.session_state.db_productos)
+                
                 st.success(f"Artículo {aid} guardado.")
-
+                
     with tab_p2:
         if st.session_state.db_productos:
             st.dataframe(pd.DataFrame(st.session_state.db_productos))
@@ -267,9 +269,13 @@ elif opcion == "Órdenes de Compra":
                         "Facturación": tipo_fact,
                         "Detalle Extra": detalle_extra_oc
                     })
+                    sincronizar("oc", st.session_state.db_oc)
+                    
                     st.session_state.db_items_oc_actual = []
+                    
                     st.success(f"¡{oc_id} guardada exitosamente!")
                     st.rerun()
+                    
                 if c_fin2.button("🗑️ Vaciar lista items", use_container_width=True):
                     st.session_state.db_items_oc_actual = []
                     st.rerun()
@@ -350,6 +356,8 @@ elif opcion == "Bitácora":
                         "Empresa": emp_b, 
                         "Gestion": cont # Cambiado de 'Detalle' a 'Gestion' para que lo lea el Historial Global
                     })
+                    sincronizar("bitacora", st.session_state.db_bitacora)
+                    
                     st.success(f"✅ Registro guardado para {emp_b}")
                     st.rerun()
 
