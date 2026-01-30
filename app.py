@@ -128,21 +128,24 @@ elif opcion == "Contactos":
                 mail2 = st.text_input("Mail 2")
                 extra = st.text_area("Dato Extra")
             
-            # EL BOTÓN DE GUARDADO
             if st.form_submit_button("Guardar Contacto"):
-                cid = f"C - {len(st.session_state.db_contactos) + 1}"
-                nuevo = {
-                    "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
-                    "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                    "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
-                }
-                st.session_state.db_contactos.append(nuevo)
-                
-                # ESTA LÍNEA ES LA ÚNICA QUE DEBE EXISTIR Y DEBE ESTAR AQUÍ:
-                sincronizar("contactos", st.session_state.db_contactos)
-                
-                st.success(f"Contacto {cid} guardado.")
-                st.rerun()
+                if empresa:
+                    cid = f"C - {len(st.session_state.db_contactos) + 1}"
+                    nuevo = {
+                        "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
+                        "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
+                        "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
+                    }
+                    # 1. Actualizamos memoria local
+                    st.session_state.db_contactos.append(nuevo)
+                    
+                    # 2. Llamamos a la sincronización (CON ESTA SANGRÍA EXACTA)
+                    sincronizar("contactos", st.session_state.db_contactos)
+                    
+                    st.success(f"Contacto {cid} guardado.")
+                    st.rerun()
+                else:
+                    st.warning("Por favor, ingresa el nombre de la empresa.")
 
     with t2:
         if st.session_state.db_contactos:
