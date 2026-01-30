@@ -540,16 +540,28 @@ elif opcion == "Cobros":
 
                         with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {df_mes['Monto'].sum():,.2f}"):
                             st.table(df_mostrar)
-        # --- LÓGICA PARA LAS 3 PESTAÑAS NUEVAS ---
+       # --- LÓGICA PARA LAS 3 PESTAÑAS (Corregida para decimales) ---
         def mostrar_tabla_por_estado(estado_nombre):
             if st.session_state.db_cobros:
                 df_all = pd.DataFrame(list(st.session_state.db_cobros.values()))
-                df_filt = df_all[df_all["Estado"] == estado_nombre]
+                df_filt = df_all[df_all["Estado"] == estado_nombre].copy()
+                
                 if not df_filt.empty:
                     st.metric(f"Total en {estado_nombre}", f"U$S {df_filt['Monto'].sum():,.2f}")
-                    # Mostramos ID, Referencia, Empresa, Dólar y Monto
+                    
+                    # --- FORMATEO DE DECIMALES AQUÍ ---
                     cols_vista = ["OC_ID", "Referencia", "Empresa", "Dólar", "Monto", "Fecha"]
-                    st.table(df_filt[[c for c in cols_vista if c in df_filt.columns]])
+                    # Filtramos solo las columnas que existen
+                    df_final = df_filt[[c for c in cols_vista if c in df_filt.columns]].copy()
+                    
+                    # Aplicamos los 2 decimales y formato de miles
+                    if "Dólar" in df_final.columns:
+                        df_final["Dólar"] = df_final["Dólar"].map("{:,.2f}".format)
+                    if "Monto" in df_final.columns:
+                        df_final["Monto"] = df_final["Monto"].map("{:,.2f}".format)
+                    # ----------------------------------
+
+                    st.table(df_final)
                 else:
                     st.info(f"No hay registros con estado '{estado_nombre}'.")
 
