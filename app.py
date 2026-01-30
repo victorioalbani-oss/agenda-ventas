@@ -205,7 +205,7 @@ if opcion == "Productos":
                 st.warning(f"Artículo '{prod_sel}' eliminado de la nube.")
                 st.rerun()
 
-# --- MÓDULO CONTACTOS (CORREGIDO Y SEGURO) ---
+# --- MÓDULO CONTACTOS (CON FILTROS BLINDADOS) ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -244,12 +244,8 @@ elif opcion == "Contactos":
                         "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                         "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                     }
-                    # 1. Actualizamos memoria local
                     st.session_state.db_contactos.append(nuevo)
-                    
-                    # 2. Llamamos a la sincronización (CON ESTA SANGRÍA EXACTA)
                     sincronizar("contactos", st.session_state.db_contactos)
-                    
                     st.success(f"Contacto {cid} guardado.")
                     st.rerun()
                 else:
@@ -258,23 +254,25 @@ elif opcion == "Contactos":
     with t2:
         if st.session_state.db_contactos:
             st.subheader("🔍 Buscador de Contactos")
-            df_contactos = pd.DataFrame(st.session_state.db_contactos)
+            # Convertimos a DataFrame y limpiamos nulos para que el filtro no rompa
+            df_contactos = pd.DataFrame(st.session_state.db_contactos).fillna("")
 
-            # --- FILTROS EN COLUMNAS ---
+            # --- FILTROS EN COLUMNAS CON VALIDACIÓN ---
             c_f1, c_f2, c_f3 = st.columns(3)
             with c_f1:
                 f_empresa = st.text_input("🏢 Empresa", placeholder="Buscar nombre...")
-                # Actividad: Tomamos valores únicos del DF
-                lista_act = ["Todas"] + sorted(list(df_contactos["Actividad"].unique())) if "Actividad" in df_contactos.columns else ["Todas"]
+                # VALIDACIÓN ANTI-ERROR: Filtramos nulos antes de ordenar
+                u_act = df_contactos["Actividad"].unique() if "Actividad" in df_contactos.columns else []
+                lista_act = ["Todas"] + sorted([str(x) for x in u_act if x])
                 f_actividad = st.selectbox("🛠️ Actividad", lista_act)
             
             with c_f2:
-                # País: Tomamos valores únicos
-                lista_pais = ["Todos"] + sorted(list(df_contactos["País"].unique())) if "País" in df_contactos.columns else ["Todos"]
+                u_pais = df_contactos["País"].unique() if "País" in df_contactos.columns else []
+                lista_pais = ["Todos"] + sorted([str(x) for x in u_pais if x])
                 f_pais = st.selectbox("🌎 País", lista_pais)
                 
-                # Provincia: Tomamos valores únicos
-                lista_prov = ["Todas"] + sorted(list(df_contactos["Provincia"].unique())) if "Provincia" in df_contactos.columns else ["Todas"]
+                u_prov = df_contactos["Provincia"].unique() if "Provincia" in df_contactos.columns else []
+                lista_prov = ["Todas"] + sorted([str(x) for x in u_prov if x])
                 f_prov = st.selectbox("📍 Provincia", lista_prov)
             
             with c_f3:
@@ -282,41 +280,24 @@ elif opcion == "Contactos":
 
             # --- LÓGICA DE FILTRADO ---
             df_filtrado = df_contactos.copy()
-
             if f_empresa:
                 df_filtrado = df_filtrado[df_filtrado["Empresa"].str.contains(f_empresa, case=False, na=False)]
-            
             if f_actividad != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Actividad"] == f_actividad]
-            
             if f_pais != "Todos":
                 df_filtrado = df_filtrado[df_filtrado["País"] == f_pais]
-                
             if f_prov != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Provincia"] == f_prov]
-
             if f_ciudad:
                 df_filtrado = df_filtrado[df_filtrado["Ciudad"].str.contains(f_ciudad, case=False, na=False)]
 
             st.write("---")
-            
-            # --- MOSTRAR RESULTADOS ---
             num_res = len(df_filtrado)
             if num_res > 0:
                 st.write(f"📊 Mostrando **{num_res}** contactos encontrados:")
                 st.dataframe(df_filtrado, use_container_width=True)
-                
-                # Botón de descarga para los datos filtrados
-                csv_filt = df_filtrado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Descargar esta lista filtrada (CSV)",
-                    data=csv_filt,
-                    file_name="contactos_filtrados.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
             else:
-                st.warning("❌ No se encontraron contactos con esos filtros.")
+                st.warning("❌ No se encontraron contactos.")
         else:
             st.info("No hay contactos en la lista.")
 
@@ -329,55 +310,36 @@ elif opcion == "Contactos":
 
             st.markdown(f"### Edición de: {c['Empresa']}")
             with st.form("edit_contacto_form"):
-                nombre_viejo = c['Empresa']
                 col_e1, col_e2 = st.columns(2)
                 with col_e1:
-                    new_nom = st.text_input("Nombre Empresa", value=c['Empresa'])
-                    new_act = st.text_input("Actividad", value=c['Actividad'])
-                    new_pais = st.text_input("País", value=c['País'])
-                    new_ciudad = st.text_input("Ciudad", value=c['Ciudad'])
+                    new_nom = st.text_input("Nombre Empresa", value=c.get('Empresa', ''))
+                    new_act = st.text_input("Actividad", value=c.get('Actividad', ''))
+                    new_pais = st.text_input("País", value=c.get('País', ''))
+                    new_ciudad = st.text_input("Ciudad", value=c.get('Ciudad', ''))
                     new_maps = st.text_input("Maps", value=c.get('Maps',''))
                 with col_e2:
-                    new_tel1 = st.text_input("Teléfono 1", value=c['T1'])
+                    new_tel1 = st.text_input("Teléfono 1", value=c.get('T1', ''))
                     new_tel2 = st.text_input("Teléfono 2", value=c.get('T2',''))
-                    new_mail1 = st.text_input("Mail 1", value=c['M1'])
+                    new_mail1 = st.text_input("Mail 1", value=c.get('M1', ''))
                     new_mail2 = st.text_input("Mail 2", value=c.get('M2',''))
                     new_web = st.text_input("Web", value=c.get('Web',''))
                     new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
                 
-                if st.form_submit_button("Guardar Contacto"):
-                    # 1. Creamos el diccionario con las variables del formulario de EDICIÓN (las que tienen 'new_')
-                    # Usamos c['N°'] para no perder el número original del contacto
-                    nuevo_editado = {
-                        "N°": c['N°'], 
-                        "Empresa": new_nom, 
-                        "País": new_pais, 
-                        "Ciudad": new_ciudad,
-                        "Provincia": c.get('Provincia', ''), # Mantenemos la original o podés crear un new_prov
-                        "Maps": new_maps, 
-                        "Actividad": new_act, 
-                        "Web": new_web,
-                        "T1": new_tel1, 
-                        "T2": new_tel2, 
-                        "M1": new_mail1, 
-                        "M2": new_mail2, 
-                        "Extra": new_extra
+                if st.form_submit_button("Guardar Cambios"):
+                    st.session_state.db_contactos[idx] = {
+                        "N°": c['N°'], "Empresa": new_nom, "País": new_pais, "Ciudad": new_ciudad,
+                        "Provincia": c.get('Provincia', ''), "Maps": new_maps, "Actividad": new_act, 
+                        "Web": new_web, "T1": new_tel1, "T2": new_tel2, "M1": new_mail1, "M2": new_mail2, "Extra": new_extra
                     }
-                    
-                    # 2. REEMPLAZAMOS en la posición exacta de la lista usando 'idx'
-                    st.session_state.db_contactos[idx] = nuevo_editado
-                
-                    # 3. SINCRONIZAMOS toda la lista con Google Sheets
                     sincronizar("contactos", st.session_state.db_contactos)
-                
-                    st.success(f"✅ ¡{new_nom} actualizado correctamente!")
+                    st.success("✅ Actualizado correctamente!")
                     st.rerun()
 
-    # --- LISTAS DE SEGUIMIENTO ---
+    # --- LISTAS DE SEGUIMIENTO (Sin cambios, pero asegurando renderizado) ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         if st.session_state.db_contactos:
-            nombres_totales = [c['Empresa'] for c in st.session_state.db_contactos]
+            nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
             col_add, col_btn = st.columns([3, 1])
             with col_add:
                 emp_a_agregar = st.selectbox(f"Añadir a {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
@@ -386,13 +348,8 @@ elif opcion == "Contactos":
                 if st.button("➕", key=f"btn_add_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
-                        
-                        # --- SOLUCIÓN AL ERROR DE SINCRONIZACIÓN ---
-                        # Creamos un DataFrame y lo convertimos a lista de registros
-                        df_para_nube = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        sincronizar(lista_key, df_para_nube.to_dict('records'))
-                        # -------------------------------------------
-                        
+                        df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
 
         lista = st.session_state[lista_key]
@@ -400,16 +357,9 @@ elif opcion == "Contactos":
             for emp_nombre in lista:
                 with st.expander(f"🏢 {emp_nombre}"):
                     if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
-                        # 1. Quitamos de la lista en memoria
                         st.session_state[lista_key].remove(emp_nombre)
-                        
-                        # 2. Preparamos los datos (aunque la lista ahora tenga 0 elementos)
-                        nueva_lista = st.session_state[lista_key]
-                        df_para_nube = pd.DataFrame(nueva_lista, columns=["Empresa"])
-                        
-                        # 3. Sincronizamos
-                        sincronizar(lista_key, df_para_nube.to_dict('records'))
-                        
+                        df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
 
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
