@@ -82,10 +82,11 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
 
-# --- MÓDULO PRODUCTOS ---
+# --- MÓDULO PRODUCTOS (EDICIÓN Y ELIMINACIÓN REAL) ---
 if opcion == "Productos":
     st.header("📦 Gestión de Artículos")
-    tab_p1, tab_p2 = st.tabs(["Agregar Artículos", "Listado de Artículos"])
+    # Agregamos la pestaña de "Editar / Eliminar"
+    tab_p1, tab_p2, tab_p3 = st.tabs(["Agregar Artículos", "Listado de Artículos", "🔍 Editar / Eliminar"])
     
     with tab_p1:
         with st.form("form_prod", clear_on_submit=True):
@@ -101,18 +102,70 @@ if opcion == "Productos":
             
             if st.form_submit_button("Registrar Artículo"):
                 aid = f"Art. - {len(st.session_state.db_productos) + 1}"
-                st.session_state.db_productos.append({
+                nuevo_prod = {
                     "N°": aid, "Nombre": n_art, "Dimensiones": dims, 
                     "Tejido": tej, "U$S": precio, "Cant/Pallet": cant_pal, "Peso/Pallet": peso_pal
-                })
+                }
+                st.session_state.db_productos.append(nuevo_prod)
+                # Sincronizamos con la pestaña "productos" del Sheets
                 sincronizar("productos", st.session_state.db_productos)
-                
                 st.success(f"Artículo {aid} guardado.")
+                st.rerun()
                 
     with tab_p2:
         if st.session_state.db_productos:
-            st.dataframe(pd.DataFrame(st.session_state.db_productos))
+            df_prods = pd.DataFrame(st.session_state.db_productos)
+            # Formateamos el precio para que no tenga 4 decimales
+            if "U$S" in df_prods.columns:
+                df_prods["U$S"] = df_prods["U$S"].map("{:,.2f}".format)
+            st.dataframe(df_prods, use_container_width=True)
             st.button("Descargar Listado PDF (Simulado)")
+        else:
+            st.info("No hay productos cargados.")
+
+    with tab_p3:
+        if not st.session_state.db_productos:
+            st.info("No hay productos para editar.")
+        else:
+            nombres_prod = [p['Nombre'] for p in st.session_state.db_productos]
+            prod_sel = st.selectbox("Elegí el artículo a MODIFICAR o ELIMINAR:", nombres_prod)
+            
+            # Buscamos el índice y los datos actuales
+            idx_p = next(i for i, p in enumerate(st.session_state.db_productos) if p['Nombre'] == prod_sel)
+            p_actual = st.session_state.db_productos[idx_p]
+
+            with st.form("form_edit_prod"):
+                st.write(f"### Editando: {p_actual['N°']}")
+                edit_nom = st.text_input("Nombre Artículo", value=p_actual['Nombre'])
+                ce1, ce2 = st.columns(2)
+                with ce1:
+                    edit_dims = st.text_input("Dimensiones", value=p_actual.get('Dimensiones', ''))
+                    edit_tej = st.text_input("Tejido", value=p_actual.get('Tejido', ''))
+                    edit_precio = st.number_input("Precio Unitario U$S", value=float(p_actual.get('U$S', 0.0)))
+                with ce2:
+                    edit_cant = st.number_input("Cantidad por Pallet", value=int(p_actual.get('Cant/Pallet', 0)))
+                    edit_peso = st.number_input("Peso 1 Pallet", value=float(p_actual.get('Peso/Pallet', 0.0)))
+                
+                col_eb1, col_eb2 = st.columns(2)
+                if col_eb1.form_submit_button("💾 GUARDAR CAMBIOS"):
+                    # Actualizamos el registro en la lista local
+                    st.session_state.db_productos[idx_p] = {
+                        "N°": p_actual['N°'], "Nombre": edit_nom, "Dimensiones": edit_dims, 
+                        "Tejido": edit_tej, "U$S": edit_precio, "Cant/Pallet": edit_cant, "Peso/Pallet": edit_peso
+                    }
+                    # Subimos toda la lista actualizada al Sheets
+                    sincronizar("productos", st.session_state.db_productos)
+                    st.success("✅ Artículo actualizado en la nube")
+                    st.rerun()
+
+            st.write("---")
+            if st.button("🗑️ ELIMINAR ESTE ARTÍCULO DEFINITIVAMENTE"):
+                # Lo quitamos de la lista local
+                st.session_state.db_productos.pop(idx_p)
+                # Sincronizamos (esto pisa el Excel con la lista acortada)
+                sincronizar("productos", st.session_state.db_productos)
+                st.warning(f"Artículo '{prod_sel}' eliminado de la nube.")
+                st.rerun()
 
 # --- MÓDULO CONTACTOS (CORREGIDO Y SEGURO) ---
 elif opcion == "Contactos":
