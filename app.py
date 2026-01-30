@@ -17,7 +17,12 @@ def cargar_datos_nube():
         "bitacora": "db_bitacora",
         "oc": "db_oc",
         "cobros": "db_cobros",
-        "Empresa": "db_historial_empresa"
+        "Empresa": "db_historial_empresa",
+        # AGREGAMOS ESTO:
+        "list_activos": "list_activos",
+        "list_interesados": "list_interesados",
+        "list_visitar": "list_visitar",
+        "list_otros": "list_otros"
     }
     
     for hoja, sesion in mapeo.items():
@@ -25,9 +30,11 @@ def cargar_datos_nube():
             df = conn.read(worksheet=hoja, ttl=0)
             datos = df.dropna(how="all").to_dict('records')
             
-            # --- EL ARREGLO PARA COBROS ESTÁ ACÁ ---
             if hoja == "cobros":
                 st.session_state[sesion] = {str(item['OC_ID']): item for item in datos if 'OC_ID' in item}
+            # NUEVO ARREGLO PARA LAS 4 LISTAS:
+            elif hoja in ["list_activos", "list_interesados", "list_visitar", "list_otros"]:
+                st.session_state[sesion] = [item['Empresa'] for item in datos if 'Empresa' in item]
             else:
                 st.session_state[sesion] = datos
         except Exception:
@@ -47,7 +54,10 @@ def sincronizar(pestaña, datos):
         st.error(f"⚠️ Error al guardar en {pestaña}: {e}")
 
 # 5. Inicialización de Estados
-variables_necesarias = ['db_contactos', 'db_productos', 'db_bitacora', 'db_oc', 'db_cobros', 'db_historial_empresa']
+variables_necesarias = [
+    'db_contactos', 'db_productos', 'db_bitacora', 'db_oc', 'db_cobros', 'db_historial_empresa',
+    'list_activos', 'list_interesados', 'list_visitar', 'list_otros' # <--- Agregadas
+]
 if not all(var in st.session_state for var in variables_necesarias):
     cargar_datos_nube()
 
