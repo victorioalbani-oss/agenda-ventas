@@ -621,7 +621,7 @@ elif opcion == "Cobros":
         with tab_deuda:
             mostrar_tabla_por_estado("En Deuda")
 
-# --- MÓDULO HISTORIAL INTEGRAL (UNIFICADO Y SIN ERRORES) ---
+# --- MÓDULO HISTORIAL INTEGRAL (UNIFICADO Y COMPLETO) ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Historial Integral por Empresa")
     
@@ -633,61 +633,93 @@ elif opcion == "Historial Empresas":
         c = next((item for item in st.session_state.db_contactos if item['Empresa'] == empresa_f), None)
         
         if c:
-            # Filtrar Datos con seguridad para evitar KeyError
+            # --- 1. LÓGICA DE FILTRADO ---
+            # Estado de Cliente (Listas de seguimiento)
+            estados_cliente = []
+            if empresa_f in st.session_state.get('list_activos', []): estados_cliente.append("✅ Activo")
+            if empresa_f in st.session_state.get('list_interesados', []): estados_cliente.append("⭐ Interesado")
+            if empresa_f in st.session_state.get('list_visitar', []): estados_cliente.append("📍 Visitar")
+            if empresa_f in st.session_state.get('list_otros', []): estados_cliente.append("👤 Otros")
+            txt_estado = " | ".join(estados_cliente) if estados_cliente else "Sin Clasificar"
+
+            # Bitácora
             df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
             df_bit_f = df_bit_all[df_bit_all['Empresa'] == empresa_f] if not df_bit_all.empty and 'Empresa' in df_bit_all.columns else pd.DataFrame()
 
+            # Órdenes de Compra
             df_oc_all = pd.DataFrame(st.session_state.db_oc)
-            df_oc_f = pd.DataFrame()
-            if not df_oc_all.empty and 'Empresa' in df_oc_all.columns:
-                temp_oc = df_oc_all[df_oc_all['Empresa'] == empresa_f]
-                # Reordenamos columnas (Dólar a la izquierda de Monto)
-                c_oc = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación", "Detalle Extra"]
-                cols_validas = [col for col in c_oc if col in temp_oc.columns]
-                df_oc_f = temp_oc[cols_validas]
+            df_oc_f = df_oc_all[df_oc_all['Empresa'] == empresa_f] if not df_oc_all.empty and 'Empresa' in df_oc_all.columns else pd.DataFrame()
 
-            # --- MOSTRAR TODO EN PANTALLA ---
+            # Estado de Cobros (Diccionario a DataFrame)
+            df_cobros_all = pd.DataFrame(list(st.session_state.db_cobros.values()))
+            df_cob_f = df_cobros_all[df_cobros_all['Empresa'] == empresa_f] if not df_cobros_all.empty and 'Empresa' in df_cobros_all.columns else pd.DataFrame()
+
+            # --- 2. MOSTRAR INFORMACIÓN (ESTÉTICA ORIGINAL) ---
             st.write("---")
-            st.subheader("📞 Información de Contacto")
+            st.subheader(f"🚩 Estado del Cliente: {txt_estado}")
+            
+            st.subheader("📞 Información de Contacto Completa")
             col_inf1, col_inf2 = st.columns(2)
             with col_inf1:
+                st.write(f"**N° Registro:** {c.get('N°', 'S/N')}")
                 st.write(f"**Empresa:** {c['Empresa']}")
-                st.write(f"**Actividad:** {c['Actividad']} | **Ubicación:** {c['Ciudad']}, {c['País']}")
+                st.write(f"**Actividad:** {c['Actividad']}")
+                st.write(f"**Ubicación:** {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}")
+                st.write(f"**Google Maps:** {c.get('Maps', 'N/A')}")
             with col_inf2:
-                st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')}")
+                st.write(f"**Web:** {c.get('Web', 'N/A')}")
+                st.write(f"**Teléfonos:** {c['T1']} / {c.get('T2','')} / {c.get('T3','')}")
                 st.write(f"**Mails:** {c['M1']} / {c.get('M2','')}")
+                st.write(f"**Dato Extra:** {c.get('Extra', 'N/A')}")
 
             st.write("---")
             st.subheader("📝 Bitácora de Gestiones")
-            if not df_bit_f.empty: st.dataframe(df_bit_f, use_container_width=True)
-            else: st.info("No hay gestiones en la bitácora.")
+            if not df_bit_f.empty: 
+                st.dataframe(df_bit_f, use_container_width=True)
+            else: 
+                st.info("No hay gestiones en la bitácora.")
 
             st.write("---")
             st.subheader("🛒 Historial de Órdenes de Compra")
             if not df_oc_f.empty:
-                st.dataframe(df_oc_f, use_container_width=True)
+                # Mantenemos tu orden de columnas preferido
+                c_oc = ["ID", "Fecha", "Referencia", "Dólar", "Monto", "Facturación"]
+                cols_validas = [col for col in c_oc if col in df_oc_f.columns]
+                st.dataframe(df_oc_f[cols_validas], use_container_width=True)
                 st.metric("Total Facturado", f"U$S {df_oc_f['Monto'].sum():,.2f}")
-            else: st.info("No hay órdenes registradas.")
+            else: 
+                st.info("No hay órdenes registradas.")
 
-            # --- BOTÓN DE DESCARGA GLOBAL (.HTML) ---
+            st.write("---")
+            st.subheader("💰 Estado de Cobros")
+            if not df_cob_f.empty:
+                # Mostramos ID, Referencia, Estado y Fecha de cobro
+                df_cob_view = df_cob_f[["OC_ID", "Referencia", "Monto", "Estado", "Fecha"]].copy()
+                st.table(df_cob_view)
+            else:
+                st.info("No hay registros de cobros para esta empresa.")
+
+            # --- 3. REPORTE GLOBAL ACTUALIZADO ---
             st.write("---")
             html_final = f"""
             <html>
             <body style="font-family: Arial; padding: 20px;">
                 <div style="border: 2px solid #1f77b4; padding: 15px; border-radius: 10px;">
                     <h1 style="color: #1f77b4; text-align: center;">INFORME GLOBAL: {empresa_f}</h1>
+                    <h3 style="text-align: center;">Estado: {txt_estado}</h3>
                     <hr>
                     <h3>1. DATOS DE CONTACTO</h3>
-                    <p><b>Actividad:</b> {c['Actividad']} | <b>Ubicación:</b> {c['Ciudad']} ({c['País']})</p>
+                    <p><b>Registro:</b> {c.get('N°','')} | <b>Empresa:</b> {c['Empresa']}</p>
+                    <p><b>Ubicación:</b> {c['Ciudad']}, {c.get('Provincia','')}, {c['País']}</p>
                     <p><b>Contacto:</b> {c['T1']} / {c['M1']}</p>
                     <p><b>Extra:</b> {c.get('Extra', 'N/A')}</p>
                     <hr>
                     <h3>2. BITÁCORA</h3>
                     {df_bit_f.to_html(index=False) if not df_bit_f.empty else '<p>Sin registros.</p>'}
                     <hr>
-                    <h3>3. ÓRDENES DE COMPRA</h3>
-                    {df_oc_f.to_html(index=False) if not df_oc_f.empty else '<p>Sin registros.</p>'}
-                    <h3 style="text-align: right;">TOTAL: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}</h3>
+                    <h3>3. ÓRDENES Y COBROS</h3>
+                    {df_oc_f.to_html(index=False) if not df_oc_f.empty else '<p>Sin órdenes.</p>'}
+                    <h3 style="text-align: right;">TOTAL FACTURADO: U$S {df_oc_f['Monto'].sum() if not df_oc_f.empty else 0:,.2f}</h3>
                 </div>
             </body>
             </html>
