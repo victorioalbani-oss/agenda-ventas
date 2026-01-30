@@ -177,19 +177,31 @@ elif opcion == "Contactos":
                     new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
                 
                 if st.form_submit_button("Guardar Contacto"):
-                    cid = f"C - {len(st.session_state.db_contactos) + 1}"
-                    nuevo = {
-                        "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
-                        "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
-                        "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
-                        }
-                # 1. Guarda en la memoria de la app
-                    st.session_state.db_contactos[idx] = nuevo
+                    # 1. Creamos el diccionario con las variables del formulario de EDICIÓN (las que tienen 'new_')
+                    # Usamos c['N°'] para no perder el número original del contacto
+                    nuevo_editado = {
+                        "N°": c['N°'], 
+                        "Empresa": new_nom, 
+                        "País": new_pais, 
+                        "Ciudad": new_ciudad,
+                        "Provincia": c.get('Provincia', ''), # Mantenemos la original o podés crear un new_prov
+                        "Maps": new_maps, 
+                        "Actividad": new_act, 
+                        "Web": new_web,
+                        "T1": new_tel1, 
+                        "T2": new_tel2, 
+                        "M1": new_mail1, 
+                        "M2": new_mail2, 
+                        "Extra": new_extra
+                    }
+                    
+                    # 2. REEMPLAZAMOS en la posición exacta de la lista usando 'idx'
+                    st.session_state.db_contactos[idx] = nuevo_editado
                 
-                # 2. SOLO AQUÍ va la sincronización (alineada con el append)
+                    # 3. SINCRONIZAMOS toda la lista con Google Sheets
                     sincronizar("contactos", st.session_state.db_contactos)
                 
-                    st.success(f"Contacto {cid} guardado en la nube.")
+                    st.success(f"✅ ¡{new_nom} actualizado correctamente!")
                     st.rerun()
 
     # --- LISTAS DE SEGUIMIENTO ---
