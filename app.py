@@ -82,13 +82,17 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
 
-# --- MÓDULO PRODUCTOS (EDICIÓN Y ELIMINACIÓN REAL) ---
+# --- MÓDULO PRODUCTOS (CON ADVERTENCIAS DE GESTIÓN) ---
 if opcion == "Productos":
     st.header("📦 Gestión de Artículos")
-    # Agregamos la pestaña de "Editar / Eliminar"
     tab_p1, tab_p2, tab_p3 = st.tabs(["Agregar Artículos", "Listado de Artículos", "🔍 Editar / Eliminar"])
     
     with tab_p1:
+        # Mensaje de consejo para la creación de nuevos artículos
+        st.info("""💡 **Consejo de carga:** Aconsejo agregar el Artículo como **'AÑO/MES - Articulo X'**. 
+        Por ejemplo: **'2026/1 - Artículo 54'** (incluso si querés ponerle día también podés, queda en vos). 
+        Esto asegura que el precio quede asociado a un periodo específico.""")
+        
         with st.form("form_prod", clear_on_submit=True):
             n_art = st.text_input("Nombre Artículo")
             c1, c2 = st.columns(2)
@@ -107,7 +111,6 @@ if opcion == "Productos":
                     "Tejido": tej, "U$S": precio, "Cant/Pallet": cant_pal, "Peso/Pallet": peso_pal
                 }
                 st.session_state.db_productos.append(nuevo_prod)
-                # Sincronizamos con la pestaña "productos" del Sheets
                 sincronizar("productos", st.session_state.db_productos)
                 st.success(f"Artículo {aid} guardado.")
                 st.rerun()
@@ -115,7 +118,6 @@ if opcion == "Productos":
     with tab_p2:
         if st.session_state.db_productos:
             df_prods = pd.DataFrame(st.session_state.db_productos)
-            # Formateamos el precio para que no tenga 4 decimales
             if "U$S" in df_prods.columns:
                 df_prods["U$S"] = df_prods["U$S"].map("{:,.2f}".format)
             st.dataframe(df_prods, use_container_width=True)
@@ -127,10 +129,14 @@ if opcion == "Productos":
         if not st.session_state.db_productos:
             st.info("No hay productos para editar.")
         else:
+            # Mensaje de advertencia crítico para la edición
+            st.warning("""⚠️ **Atención:** No aconsejo editar porque se modifican todas las OC relacionadas y capaz hay viejas. 
+            Por eso es mejor agregar Artículos nuevos como **'AÑO/MES - Articulo X'** para asociar el producto y precio a una fecha 
+            y no tener el problema de viejas OC modificadas.""")
+            
             nombres_prod = [p['Nombre'] for p in st.session_state.db_productos]
             prod_sel = st.selectbox("Elegí el artículo a MODIFICAR o ELIMINAR:", nombres_prod)
             
-            # Buscamos el índice y los datos actuales
             idx_p = next(i for i, p in enumerate(st.session_state.db_productos) if p['Nombre'] == prod_sel)
             p_actual = st.session_state.db_productos[idx_p]
 
@@ -148,21 +154,17 @@ if opcion == "Productos":
                 
                 col_eb1, col_eb2 = st.columns(2)
                 if col_eb1.form_submit_button("💾 GUARDAR CAMBIOS"):
-                    # Actualizamos el registro en la lista local
                     st.session_state.db_productos[idx_p] = {
                         "N°": p_actual['N°'], "Nombre": edit_nom, "Dimensiones": edit_dims, 
                         "Tejido": edit_tej, "U$S": edit_precio, "Cant/Pallet": edit_cant, "Peso/Pallet": edit_peso
                     }
-                    # Subimos toda la lista actualizada al Sheets
                     sincronizar("productos", st.session_state.db_productos)
                     st.success("✅ Artículo actualizado en la nube")
                     st.rerun()
 
             st.write("---")
             if st.button("🗑️ ELIMINAR ESTE ARTÍCULO DEFINITIVAMENTE"):
-                # Lo quitamos de la lista local
                 st.session_state.db_productos.pop(idx_p)
-                # Sincronizamos (esto pisa el Excel con la lista acortada)
                 sincronizar("productos", st.session_state.db_productos)
                 st.warning(f"Artículo '{prod_sel}' eliminado de la nube.")
                 st.rerun()
