@@ -530,8 +530,16 @@ elif opcion == "Cobros":
                     df_m = pd.DataFrame(data_m).sort_values("Fecha_Sort")
                     for etiqueta in df_m["Mes_Anio"].unique():
                         df_mes = df_m[df_m["Mes_Anio"] == etiqueta]
+                        
+                        # --- EL ARREGLO PARA LOS DECIMALES ESTÁ ACÁ ---
+                        # Forzamos a que Dólar y Monto solo muestren 2 decimales
+                        df_mostrar = df_mes[["OC", "Referencia", "Empresa", "Dólar", "Monto", "Estado"]].copy()
+                        df_mostrar["Dólar"] = df_mostrar["Dólar"].map("{:,.2f}".format)
+                        df_mostrar["Monto"] = df_mostrar["Monto"].map("{:,.2f}".format)
+                        # ----------------------------------------------
+
                         with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {df_mes['Monto'].sum():,.2f}"):
-                            st.table(df_mes[["OC", "Referencia", "Empresa", "Dólar", "Monto", "Estado"]])
+                            st.table(df_mostrar)
         # --- LÓGICA PARA LAS 3 PESTAÑAS NUEVAS ---
         def mostrar_tabla_por_estado(estado_nombre):
             if st.session_state.db_cobros:
