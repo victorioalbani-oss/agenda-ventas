@@ -218,11 +218,11 @@ elif opcion == "Contactos":
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
                         
-                        # --- EL ARREGLO ESTÁ ACÁ ---
-                        # Convertimos la lista de nombres en una tabla con columna "Empresa"
-                        df_sinc = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        sincronizar(lista_key, df_sinc.to_dict('records'))
-                        # ---------------------------
+                        # --- SOLUCIÓN AL ERROR DE SINCRONIZACIÓN ---
+                        # Creamos un DataFrame y lo convertimos a lista de registros
+                        df_para_nube = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_para_nube.to_dict('records'))
+                        # -------------------------------------------
                         
                         st.rerun()
 
@@ -233,10 +233,10 @@ elif opcion == "Contactos":
                     if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         
-                        # --- Y TAMBIÉN ACÁ PARA BORRAR ---
-                        df_sinc = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        sincronizar(lista_key, df_sinc.to_dict('records'))
-                        # ---------------------------------
+                        # --- TAMBIÉN ACTUALIZAMOS AL QUITAR ---
+                        df_para_nube = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_para_nube.to_dict('records'))
+                        # --------------------------------------
                         
                         st.rerun()
 
