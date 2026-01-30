@@ -3,20 +3,22 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-# 1. Configuración de página (SIEMPRE PRIMERO)
+# 1. Configuración de página
 st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
 
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 3. Función para cargar datos (El "Cerebro" de lectura)
+# 3. Función para cargar TODO desde Google Sheets
 def cargar_datos_nube():
-    # Diccionario para mapear las pestañas con las variables de sesión
+    # Mapeamos CADA pestaña de tu imagen con su variable en la app
     mapeo = {
         "contactos": "db_contactos",
         "productos": "db_productos",
         "bitacora": "db_bitacora",
-        "oc": "db_oc"
+        "oc": "db_oc",
+        "cobros": "db_cobros",
+        "Empresa": "db_historial_empresa" # Respetamos la E mayúscula de tu pestaña
     }
     
     for hoja, sesion in mapeo.items():
@@ -26,19 +28,19 @@ def cargar_datos_nube():
         except Exception:
             st.session_state[sesion] = []
 
-# 4. Función para guardar (El "Cerebro" de escritura)
+# 4. Función para subir datos
 def sincronizar(pestaña, datos):
     if not datos:
         return
     try:
         df = pd.DataFrame(datos)
         conn.update(worksheet=pestaña, data=df)
-        st.toast(f"✅ Sincronizado: {pestaña}")
+        st.toast(f"✅ Sincronizado en Nube: {pestaña}")
     except Exception as e:
-        st.error(f"⚠️ Error de conexión: {e}")
+        st.error(f"⚠️ Error al guardar en {pestaña}: {e}")
 
-# 5. Inicialización de Estados (Asegura que todas las variables existan al arrancar)
-variables_necesarias = ['db_contactos', 'db_productos', 'db_bitacora', 'db_oc']
+# 5. Inicialización de Estados
+variables_necesarias = ['db_contactos', 'db_productos', 'db_bitacora', 'db_oc', 'db_cobros', 'db_historial_empresa']
 if not all(var in st.session_state for var in variables_necesarias):
     cargar_datos_nube()
 
@@ -49,7 +51,7 @@ if 'db_items_oc_actual' not in st.session_state:
 st.sidebar.title("Menú Principal")
 if st.sidebar.button("🔄 Recargar desde Nube"):
     cargar_datos_nube()
-    st.success("¡Datos actualizados!")
+    st.success("¡Datos sincronizados!")
     st.rerun()
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
