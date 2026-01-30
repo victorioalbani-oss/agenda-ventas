@@ -36,7 +36,8 @@ def cargar_datos_nube():
 
 # 4. Función para subir datos
 def sincronizar(pestaña, datos):
-    if not datos:
+    # Verificación compatible con listas y DataFrames
+    if datos is None or (isinstance(datos, (list, pd.DataFrame)) and len(datos) == 0):
         return
     try:
         df = pd.DataFrame(datos)
