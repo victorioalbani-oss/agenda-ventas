@@ -41,10 +41,16 @@ def cargar_datos_nube():
         st.session_state.db_oc = []
 
 def sincronizar(pestaña, datos):
-    if datos: # Solo intenta guardar si hay datos reales
+    if not datos:
+        return
+    try:
+        # Convertimos a DataFrame y forzamos la actualización
         df = pd.DataFrame(datos)
         conn.update(worksheet=pestaña, data=df)
-        st.toast(f"✅ Sincronizado: {pestaña}")
+        st.toast(f"✅ Datos subidos a Google Sheets: {pestaña}")
+    except Exception as e:
+        # En lugar de romper la app con pantalla roja, nos muestra el aviso
+        st.error(f"⚠️ Error de conexión con la nube: {e}")
 
 # Inicialización al abrir la app (Solo se ejecuta una vez)
 if 'db_contactos' not in st.session_state:
