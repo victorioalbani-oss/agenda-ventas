@@ -496,7 +496,7 @@ elif opcion == "Cobros":
                 cols_resumen = ["OC_ID", "Referencia", "Empresa", "Dólar", "Monto", "Estado", "Fecha"]
                 st.dataframe(df_resumen[[c for c in cols_resumen if c in df_resumen.columns]], use_container_width=True)
 
-        # PESTAÑA 2: MENSUAL
+        # PESTAÑA 2: MENSUAL (Corregida)
         with tab_mensual:
             st.subheader("📅 Cobros por Mes")
             if st.session_state.db_cobros:
@@ -504,17 +504,34 @@ elif opcion == "Cobros":
                 data_m = []
                 for k, v in st.session_state.db_cobros.items():
                     f = v['Fecha']
+                    
+                    # --- EL ARREGLO ESTÁ ACÁ: Convertimos texto a fecha si es necesario ---
+                    if isinstance(f, str):
+                        try:
+                            # Intentamos convertir el texto "AAAA-MM-DD" a fecha real
+                            f = datetime.strptime(f, '%Y-%m-%d').date()
+                        except:
+                            # Si el formato es distinto, usamos la fecha de hoy para no romper la app
+                            f = datetime.now().date()
+                    # ---------------------------------------------------------------------
+
                     data_m.append({
                         "Fecha_Sort": f,
                         "Mes_Anio": f"{meses_es[f.month]} {f.year}",
-                        "OC": k, "Referencia": v.get('Referencia', ''), "Empresa": v['Empresa'], "Dólar": v.get('Dólar', 0), "Monto": v['Monto'], "Estado": v['Estado']
+                        "OC": k, 
+                        "Referencia": v.get('Referencia', ''), 
+                        "Empresa": v['Empresa'], 
+                        "Dólar": v.get('Dólar', 0), 
+                        "Monto": v['Monto'], 
+                        "Estado": v['Estado']
                     })
-                df_m = pd.DataFrame(data_m).sort_values("Fecha_Sort")
-                for etiqueta in df_m["Mes_Anio"].unique():
-                    df_mes = df_m[df_m["Mes_Anio"] == etiqueta]
-                    with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {df_mes['Monto'].sum():,.2f}"):
-                        st.table(df_mes[["OC", "Referencia", "Empresa", "Dólar", "Monto", "Estado"]])
-
+                
+                if data_m:
+                    df_m = pd.DataFrame(data_m).sort_values("Fecha_Sort")
+                    for etiqueta in df_m["Mes_Anio"].unique():
+                        df_mes = df_m[df_m["Mes_Anio"] == etiqueta]
+                        with st.expander(f"🗓️ {etiqueta}  —  Total: U$S {df_mes['Monto'].sum():,.2f}"):
+                            st.table(df_mes[["OC", "Referencia", "Empresa", "Dólar", "Monto", "Estado"]])
         # --- LÓGICA PARA LAS 3 PESTAÑAS NUEVAS ---
         def mostrar_tabla_por_estado(estado_nombre):
             if st.session_state.db_cobros:
