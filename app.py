@@ -43,11 +43,20 @@ def cargar_datos_nube():
 
 # 4. Función para subir datos
 def sincronizar(pestaña, datos):
-    # Verificación compatible con listas y DataFrames
-    if datos is None or (isinstance(datos, (list, pd.DataFrame)) and len(datos) == 0):
+    # Solo salimos si es None. Si es una lista vacía [], queremos que siga para limpiar el Sheets.
+    if datos is None:
         return
     try:
-        df = pd.DataFrame(datos)
+        # Si la lista está vacía, creamos un DataFrame vacío con la columna correspondiente
+        if isinstance(datos, list) and len(datos) == 0:
+            # Si es de las listas de seguimiento, mantenemos el encabezado "Empresa"
+            if pestaña in ["list_activos", "list_interesados", "list_visitar", "list_otros"]:
+                df = pd.DataFrame(columns=["Empresa"])
+            else:
+                df = pd.DataFrame() # Para otras tablas
+        else:
+            df = pd.DataFrame(datos)
+            
         conn.update(worksheet=pestaña, data=df)
         st.toast(f"✅ Sincronizado en Nube: {pestaña}")
     except Exception as e:
@@ -242,12 +251,15 @@ elif opcion == "Contactos":
             for emp_nombre in lista:
                 with st.expander(f"🏢 {emp_nombre}"):
                     if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
+                        # 1. Quitamos de la lista en memoria
                         st.session_state[lista_key].remove(emp_nombre)
                         
-                        # --- TAMBIÉN ACTUALIZAMOS AL QUITAR ---
-                        df_para_nube = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        # 2. Preparamos los datos (aunque la lista ahora tenga 0 elementos)
+                        nueva_lista = st.session_state[lista_key]
+                        df_para_nube = pd.DataFrame(nueva_lista, columns=["Empresa"])
+                        
+                        # 3. Sincronizamos
                         sincronizar(lista_key, df_para_nube.to_dict('records'))
-                        # --------------------------------------
                         
                         st.rerun()
 
