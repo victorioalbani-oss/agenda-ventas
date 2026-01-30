@@ -3,69 +3,56 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-# Configuración de página
+# 1. Configuración de página (SIEMPRE PRIMERO)
 st.set_page_config(page_title="CRM Agenda de Ventas", layout="wide")
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
+# 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# 3. Función para cargar datos (El "Cerebro" de lectura)
 def cargar_datos_nube():
-    # Cargamos cada pestaña de forma independiente para que una vacía no rompa el resto
+    # Diccionario para mapear las pestañas con las variables de sesión
+    mapeo = {
+        "contactos": "db_contactos",
+        "productos": "db_productos",
+        "bitacora": "db_bitacora",
+        "oc": "db_oc"
+    }
     
-    # Contactos
-    try:
-        df_c = conn.read(worksheet="contactos", ttl=0) # ttl=0 obliga a leer datos frescos
-        st.session_state.db_contactos = df_c.dropna(how="all").to_dict('records')
-    except Exception:
-        st.session_state.db_contactos = []
+    for hoja, sesion in mapeo.items():
+        try:
+            df = conn.read(worksheet=hoja, ttl=0)
+            st.session_state[sesion] = df.dropna(how="all").to_dict('records')
+        except Exception:
+            st.session_state[sesion] = []
 
-    # Productos
-    try:
-        df_p = conn.read(worksheet="productos", ttl=0)
-        st.session_state.db_productos = df_p.dropna(how="all").to_dict('records')
-    except Exception:
-        st.session_state.db_productos = []
-
-    # Bitácora
-    try:
-        df_b = conn.read(worksheet="bitacora", ttl=0)
-        st.session_state.db_bitacora = df_b.dropna(how="all").to_dict('records')
-    except Exception:
-        st.session_state.db_bitacora = []
-
-    # Órdenes de Compra
-    try:
-        df_oc = conn.read(worksheet="oc", ttl=0)
-        st.session_state.db_oc = df_oc.dropna(how="all").to_dict('records')
-    except Exception:
-        st.session_state.db_oc = []
-
+# 4. Función para guardar (El "Cerebro" de escritura)
 def sincronizar(pestaña, datos):
     if not datos:
         return
     try:
-        # Convertimos a DataFrame y forzamos la actualización
         df = pd.DataFrame(datos)
         conn.update(worksheet=pestaña, data=df)
-        st.toast(f"✅ Datos subidos a Google Sheets: {pestaña}")
+        st.toast(f"✅ Sincronizado: {pestaña}")
     except Exception as e:
-        # En lugar de romper la app con pantalla roja, nos muestra el aviso
-        st.error(f"⚠️ Error de conexión con la nube: {e}")
+        st.error(f"⚠️ Error de conexión: {e}")
 
-# Inicialización al abrir la app (Solo se ejecuta una vez)
-if 'db_contactos' not in st.session_state:
+# 5. Inicialización de Estados (Asegura que todas las variables existan al arrancar)
+variables_necesarias = ['db_contactos', 'db_productos', 'db_bitacora', 'db_oc']
+if not all(var in st.session_state for var in variables_necesarias):
     cargar_datos_nube()
 
 if 'db_items_oc_actual' not in st.session_state:
     st.session_state.db_items_oc_actual = []
 
-# --- NAVEGACIÓN ---
+# 6. Menú Lateral
 st.sidebar.title("Menú Principal")
 if st.sidebar.button("🔄 Recargar desde Nube"):
     cargar_datos_nube()
+    st.success("¡Datos actualizados!")
     st.rerun()
 
-opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos","Historial Empresas"])
+opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
 
 # --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
