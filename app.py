@@ -217,7 +217,13 @@ elif opcion == "Contactos":
                 if st.button("➕", key=f"btn_add_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
-                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
+                        
+                        # --- EL ARREGLO ESTÁ ACÁ ---
+                        # Convertimos la lista de nombres en una tabla con columna "Empresa"
+                        df_sinc = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_sinc.to_dict('records'))
+                        # ---------------------------
+                        
                         st.rerun()
 
         lista = st.session_state[lista_key]
@@ -226,7 +232,12 @@ elif opcion == "Contactos":
                 with st.expander(f"🏢 {emp_nombre}"):
                     if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
-                        sincronizar(lista_key, pd.DataFrame(st.session_state[lista_key], columns=["Empresa"]))
+                        
+                        # --- Y TAMBIÉN ACÁ PARA BORRAR ---
+                        df_sinc = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        sincronizar(lista_key, df_sinc.to_dict('records'))
+                        # ---------------------------------
+                        
                         st.rerun()
 
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
