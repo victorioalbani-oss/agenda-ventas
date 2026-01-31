@@ -315,24 +315,36 @@ elif opcion == "Contactos":
                     new_nom = st.text_input("Nombre Empresa", value=c.get('Empresa', ''))
                     new_act = st.text_input("Actividad", value=c.get('Actividad', ''))
                     new_pais = st.text_input("País", value=c.get('País', ''))
+                    new_prov = st.text_input("Provincia", value=c.get('Provincia', '')) # Agregado
                     new_ciudad = st.text_input("Ciudad", value=c.get('Ciudad', ''))
                     new_maps = st.text_input("Maps", value=c.get('Maps',''))
                 with col_e2:
-                    new_tel1 = st.text_input("Teléfono 1", value=c.get('T1', ''))
-                    new_tel2 = st.text_input("Teléfono 2", value=c.get('T2',''))
+                    # Aplicamos el seguro de la comilla "'" para evitar errores en Excel
+                    new_tel1 = st.text_input("Teléfono 1", value=str(c.get('T1', '')).replace("'", ""))
+                    new_tel2 = st.text_input("Teléfono 2", value=str(c.get('T2', '')).replace("'", ""))
                     new_mail1 = st.text_input("Mail 1", value=c.get('M1', ''))
                     new_mail2 = st.text_input("Mail 2", value=c.get('M2',''))
                     new_web = st.text_input("Web", value=c.get('Web',''))
-                    new_extra = st.text_area("Notas / Extra", value=c.get('Extra',''))
+                    new_extra = st.text_area("Notas / Extra", value=str(c.get('Extra','')).replace("'", ""))
                 
                 if st.form_submit_button("Guardar Cambios"):
                     st.session_state.db_contactos[idx] = {
-                        "N°": c['N°'], "Empresa": new_nom, "País": new_pais, "Ciudad": new_ciudad,
-                        "Provincia": c.get('Provincia', ''), "Maps": new_maps, "Actividad": new_act, 
-                        "Web": new_web, "T1": new_tel1, "T2": new_tel2, "M1": new_mail1, "M2": new_mail2, "Extra": new_extra
+                        "N°": c['N°'], 
+                        "Empresa": new_nom, 
+                        "País": new_pais, 
+                        "Ciudad": new_ciudad,
+                        "Provincia": new_prov, # Guardado correctamente
+                        "Maps": new_maps, 
+                        "Actividad": new_act, 
+                        "Web": new_web, 
+                        "T1": f"'{new_tel1}", # Seguro de Excel
+                        "T2": f"'{new_tel2}", # Seguro de Excel
+                        "M1": new_mail1, 
+                        "M2": new_mail2, 
+                        "Extra": f"'{new_extra}" # Seguro de Excel
                     }
                     sincronizar("contactos", st.session_state.db_contactos)
-                    st.success("✅ Actualizado correctamente!")
+                    st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
     # --- LISTAS DE SEGUIMIENTO (Sin cambios, pero asegurando renderizado) ---
