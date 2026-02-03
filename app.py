@@ -380,7 +380,7 @@ elif opcion == "Contactos":
 
             for _, row in detalles_lista.iterrows():
                 emp_nombre = row['Empresa']
-                ubicacion = f"{row['País']} - {row['Provincia']} - ({row['Ciudad']})"
+                ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
                 
                 # Mostramos la ubicación directamente en la etiqueta del expander
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}"):
