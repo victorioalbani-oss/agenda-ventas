@@ -949,15 +949,30 @@ elif opcion == "Diseño":
             archivo = st.file_uploader("Elegí un PDF, Excel o Imagen", type=['pdf', 'xlsx', 'xls', 'docx', 'jpg', 'png'])
             if st.button("🚀 Subir a Drive"):
                 if archivo:
-                    file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
-                    media = MediaIoBaseUpload(archivo, mimetype=archivo.type)
-                    service_drive.files().create(body=file_metadata, media_body=media).execute()
-                    st.success(f"✅ ¡{archivo.name} guardado en la carpeta de {empresa_f}!")
-                    st.rerun()
+                    try:
+                        import mimetypes
+                        # Detectamos el tipo de archivo (MIME) de forma profesional
+                        mime_type = mimetypes.guess_type(archivo.name)[0] or 'application/octet-stream'
+                        
+                        file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
+                        
+                        # Usamos resumable=True para que no falle la subida
+                        media = MediaIoBaseUpload(archivo, mimetype=mime_type, resumable=True)
+                        
+                        service_drive.files().create(
+                            body=file_metadata, 
+                            media_body=media, 
+                            fields='id'
+                        ).execute()
+                        
+                        st.success(f"✅ ¡{archivo.name} guardado correctamente en {empresa_f}!")
+                        st.balloons()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error técnico al subir: {e}")
 
         with t_ver:
             st.subheader(f"Documentos en Drive: {empresa_f}")
-            # Listamos archivos incluyendo el link de la miniatura (thumbnail)
             res_files = service_drive.files().list(
                 q=f"'{id_subcarpeta}' in parents and trashed = false", 
                 fields="files(id, name, webViewLink, thumbnailLink)"
@@ -970,7 +985,6 @@ elif opcion == "Diseño":
                 for f in files:
                     c1, c2, c3 = st.columns([1, 4, 1])
                     with c1:
-                        # Si es imagen o PDF con vista previa, la muestra. Si no, un icono.
                         if f.get('thumbnailLink'): 
                             st.image(f['thumbnailLink'], width=70)
                         else: 
@@ -979,7 +993,6 @@ elif opcion == "Diseño":
                         st.markdown(f"**{f['name']}**")
                         st.link_button("👁️ Ver / Descargar", f['webViewLink'])
                     with c3:
-                        # ELIMINACIÓN REAL: Borra el archivo del Drive
                         if st.button("🗑️", key=f"del_{f['id']}"):
                             service_drive.files().delete(fileId=f['id']).execute()
                             st.rerun()
