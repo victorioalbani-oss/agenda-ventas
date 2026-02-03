@@ -795,19 +795,21 @@ elif opcion == "Historial Empresas":
                 if 'Fecha' in df_temp.columns:
                     df_temp['Fecha'] = pd.to_datetime(df_temp['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y')
                 
-                # 3. Filtramos para mostrar SOLO Fecha y Detalle
-                # Usamos una lista de columnas existentes para evitar errores si cambia el Excel
-                cols_a_mostrar = [col for col in ["Fecha", "Detalle"] if col in df_temp.columns]
+                # 3. Mapeo de columnas: Usamos "Gestion" que es el nombre real en tu Excel
+                # Si por algún motivo cambia, el código busca ambas para no romperse
+                col_gestion = "Gestion" if "Gestion" in df_temp.columns else "Detalle"
+                
+                cols_a_mostrar = [col for col in ["Fecha", col_gestion] if col in df_temp.columns]
                 df_view = df_temp[cols_a_mostrar].sort_index(ascending=False)
 
-                # 4. Renderizado de tabla limpia y ancha
+                # 4. Renderizado con los nombres que VOS querés ver en la App
                 st.dataframe(
                     df_view,
                     use_container_width=True,
                     hide_index=True,
                     column_config={
                         "Fecha": st.column_config.TextColumn("📅 Fecha", width="small"),
-                        "Detalle": st.column_config.TextColumn("📄 Detalles de la Gestión", width="large")
+                        col_gestion: st.column_config.TextColumn("📄 Detalles de la Gestión", width="large")
                     }
                 )
             else: 
