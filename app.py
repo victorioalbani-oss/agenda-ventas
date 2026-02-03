@@ -919,7 +919,7 @@ elif opcion == "Historial Empresas":
             """
             st.download_button("📥 DESCARGAR REPORTE GLOBAL (.HTML)", data=html_final, file_name=f"Reporte_{empresa_f}.html", mime="text/html", use_container_width=True, type="primary")
 
-# --- MÓDULO DISEÑO (VISUALIZADOR Y GESTOR DE DRIVE) ---
+# --- MÓDULO DISEÑO (VISUALIZADOR SEGURO) ---
 elif opcion == "Diseño":
     st.header("🎨 Gestión de Documentación Técnica")
     
@@ -942,12 +942,10 @@ elif opcion == "Diseño":
             if st.button(f"🆕 Crear Carpeta para {empresa_f}"):
                 meta = {'name': empresa_f, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [ID_CARPETA_RAIZ]}
                 service_drive.files().create(body=meta).execute()
-                st.success("¡Carpeta creada! Ya podés subir archivos desde tu Drive.")
+                st.success("¡Carpeta creada con éxito!")
                 st.rerun()
         else:
-            st.success(f"✅ Carpeta vinculada correctamente.")
-            
-            # --- LISTADO DE ARCHIVOS ---
+            # --- LISTADO DE ARCHIVOS SEGURO ---
             st.subheader(f"📁 Archivos de {empresa_f}")
             res_files = service_drive.files().list(
                 q=f"'{id_subcarpeta}' in parents and trashed = false", 
@@ -956,20 +954,21 @@ elif opcion == "Diseño":
             files = res_files.get('files', [])
 
             if not files:
-                st.info("La carpeta está vacía. Subí los planos o archivos directamente a Google Drive.")
+                st.info("La carpeta está vacía.")
             else:
                 for f in files:
-                    c1, c2, c3 = st.columns([1, 4, 1])
+                    # Usamos solo 2 columnas ahora: Icono y Nombre/Link
+                    c1, c2 = st.columns([1, 5]) 
                     with c1:
-                        if f.get('thumbnailLink'): st.image(f['thumbnailLink'], width=70)
-                        else: st.write("📄")
+                        if f.get('thumbnailLink'): 
+                            st.image(f['thumbnailLink'], width=70)
+                        else: 
+                            st.write("📄")
                     with c2:
                         st.markdown(f"**{f['name']}**")
                         st.link_button("👁️ Ver / Descargar", f['webViewLink'])
-                    with c3:
-                        if st.button("🗑️", key=f"del_{f['id']}"):
-                            service_drive.files().delete(fileId=f['id']).execute()
-                            st.rerun()
-
+            
             st.write("---")
-            st.caption("🚀 Tip: Para agregar archivos, arrastralos a la carpeta correspondiente en tu Google Drive y aparecerán acá al instante.")
+            # Agregamos un botón útil para abrir la carpeta completa en Drive por si querés gestionar algo manual
+            url_carpeta = f"https://drive.google.com/drive/folders/{id_subcarpeta}"
+            st.link_button("📂 Abrir carpeta en Google Drive", url_carpeta)
