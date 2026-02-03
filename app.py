@@ -12,7 +12,7 @@ from google.oauth2 import service_account
 # --- MÓDULO BITÁCORA --- LINEA 528
 # --- MÓDULO COBROS --- LINEA 635
 # --- MÓDULO HISTORIAL INTEGRAL --- LINEA 791
-# --- MÓDULO DISEÑO --- LINEA 922
+# --- MÓDULO DISEÑO --- LINEA 916
 
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
@@ -28,7 +28,7 @@ service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 # --------------------------------
 
-# --- INICIO DEL BLOQUE DE LOGIN (PONELO ACÁ) ---
+# --- INICIO DEL BLOQUE DE LOGIN  ---
 def login_nube():
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
@@ -137,7 +137,7 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Diseño", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
 
-# --- MÓDULO PRODUCTOS (CON ADVERTENCIAS DE GESTIÓN) ---
+# --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
     st.header("📦 Gestión de Artículos")
     tab_p1, tab_p2, tab_p3 = st.tabs(["Agregar Artículos", "Listado de Artículos", "🔍 Editar / Eliminar"])
@@ -224,7 +224,7 @@ if opcion == "Productos":
                 st.warning(f"Artículo '{prod_sel}' eliminado de la nube.")
                 st.rerun()
 
-# --- MÓDULO CONTACTOS (CON FILTROS BLINDADOS) ---
+# --- MÓDULO CONTACTOS ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
     
@@ -366,7 +366,7 @@ elif opcion == "Contactos":
                     st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
-    # --- LISTAS DE SEGUIMIENTO (CON INFORMACIÓN GEOGRÁFICA) ---
+    # --- LISTAS DE SEGUIMIENTO ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
@@ -419,7 +419,7 @@ elif opcion == "Contactos":
     with t_vis: render_lista_seguimiento("Clientes por Visitar", "list_visitar")
     with t_otr: render_lista_seguimiento("Clientes de Otro", "list_otros")
 
-# --- MÓDULO ÓRDENES DE COMPRA (DÓLAR A LA IZQUIERDA DEL MONTO) ---
+# --- MÓDULO ÓRDENES DE COMPRA ---
 elif opcion == "Órdenes de Compra":
     st.header("🛒 Gestión de Órdenes de Compra")
     tab_carga, tab_historial = st.tabs(["➕ Nueva Orden", "📋 Historial y Gestión"])
@@ -465,7 +465,7 @@ elif opcion == "Órdenes de Compra":
                     st.session_state.db_oc.append({
                         "ID": oc_id, 
                         "Empresa": emp_oc, 
-                        "Dólar": dolar,    # <--- Guardado
+                        "Dólar": dolar,   
                         "Monto": total_usd, 
                         "Fecha": fecha_oc, 
                         "Referencia": nombre_oc,
@@ -533,7 +533,7 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA (TU VERSIÓN REPARADA) ---
+# --- MÓDULO BITÁCORA ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
@@ -640,7 +640,7 @@ elif opcion == "Bitácora":
         else:
             st.info("La bitácora está vacía.")
 
-# --- MÓDULO COBROS (CON ID Y REFERENCIA EN PESTAÑAS DE ESTADO) ---
+# --- MÓDULO COBROS ---
 elif opcion == "Cobros":
     st.header("💰 Gestión de Cobros")
     
@@ -720,7 +720,7 @@ elif opcion == "Cobros":
                 cols_resumen = ["OC_ID", "Referencia", "Empresa", "Dólar", "Monto", "Estado", "Fecha"]
                 st.dataframe(df_resumen[[c for c in cols_resumen if c in df_resumen.columns]], use_container_width=True)
 
-        # PESTAÑA 2: MENSUAL (Corregida)
+        # PESTAÑA 2: MENSUAL 
         with tab_mensual:
             st.subheader("📅 Cobros por Mes")
             if st.session_state.db_cobros:
@@ -796,7 +796,7 @@ elif opcion == "Cobros":
         with tab_deuda:
             mostrar_tabla_por_estado("En Deuda")
 
-# --- MÓDULO HISTORIAL INTEGRAL (CON DISEÑOS DE DRIVE) ---
+# --- MÓDULO HISTORIAL INTEGRAL ---
 elif opcion == "Historial Empresas":
     st.header("🏢 Historial Integral por Empresa")
     
