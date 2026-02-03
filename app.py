@@ -2,14 +2,19 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
-#from googleapiclient.discovery import build
-#from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Reutilizamos las credenciales que ya tenés configuradas para Sheets
+credentials = conn._instance._creds 
+service_drive = build('drive', 'v3', credentials=credentials)
+ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 # --- INICIO DEL BLOQUE DE LOGIN (PONELO ACÁ) ---
 def login_nube():
@@ -118,7 +123,7 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
     st.success("¡Datos sincronizados!")
     st.rerun()
 
-opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
+opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Diseño", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
 
 # --- MÓDULO PRODUCTOS (CON ADVERTENCIAS DE GESTIÓN) ---
 if opcion == "Productos":
@@ -909,3 +914,68 @@ elif opcion == "Historial Empresas":
             </html>
             """
             st.download_button("📥 DESCARGAR REPORTE GLOBAL (.HTML)", data=html_final, file_name=f"Reporte_{empresa_f}.html", mime="text/html", use_container_width=True, type="primary")
+
+# --- MÓDULO DISEÑO (CREACIÓN DE CARPETAS Y GESTIÓN DE ARCHIVOS) ---
+elif opcion == "Diseño":
+    st.header("🎨 Gestión de Documentación Técnica")
+    
+    if not st.session_state.db_contactos:
+        st.warning("No hay empresas registradas para asociar archivos.")
+    else:
+        # 1. Selección de Empresa
+        nombres_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
+        empresa_f = st.selectbox("📂 Seleccioná la empresa:", nombres_empresas)
+
+        # Función para buscar o crear la subcarpeta de la empresa automáticamente
+        def obtener_o_crear_carpeta(nombre):
+            query = f"name = '{nombre}' and '{ID_CARPETA_RAIZ}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            res = service_drive.files().list(q=query).execute()
+            folders = res.get('files', [])
+            if folders: 
+                return folders[0]['id']
+            # Si no existe, la crea
+            meta = {'name': nombre, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [ID_CARPETA_RAIZ]}
+            new_folder = service_drive.files().create(body=meta, fields='id').execute()
+            return new_folder.get('id')
+
+        id_subcarpeta = obtener_o_crear_carpeta(empresa_f)
+        t_subir, t_ver = st.tabs(["📤 Subir Documento", "📁 Archivos de la Empresa"])
+
+        with t_subir:
+            archivo = st.file_uploader("Elegí un PDF, Excel o Imagen", type=['pdf', 'xlsx', 'xls', 'docx', 'jpg', 'png'])
+            if st.button("🚀 Subir a Drive"):
+                if archivo:
+                    file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
+                    media = MediaIoBaseUpload(archivo, mimetype=archivo.type)
+                    service_drive.files().create(body=file_metadata, media_body=media).execute()
+                    st.success(f"✅ ¡{archivo.name} guardado en la carpeta de {empresa_f}!")
+                    st.rerun()
+
+        with t_ver:
+            st.subheader(f"Documentos en Drive: {empresa_f}")
+            # Listamos archivos incluyendo el link de la miniatura (thumbnail)
+            res_files = service_drive.files().list(
+                q=f"'{id_subcarpeta}' in parents and trashed = false", 
+                fields="files(id, name, webViewLink, thumbnailLink)"
+            ).execute()
+            files = res_files.get('files', [])
+
+            if not files:
+                st.info("No hay archivos cargados para esta empresa.")
+            else:
+                for f in files:
+                    c1, c2, c3 = st.columns([1, 4, 1])
+                    with c1:
+                        # Si es imagen o PDF con vista previa, la muestra. Si no, un icono.
+                        if f.get('thumbnailLink'): 
+                            st.image(f['thumbnailLink'], width=70)
+                        else: 
+                            st.write("📄")
+                    with c2:
+                        st.markdown(f"**{f['name']}**")
+                        st.link_button("👁️ Ver / Descargar", f['webViewLink'])
+                    with c3:
+                        # ELIMINACIÓN REAL: Borra el archivo del Drive
+                        if st.button("🗑️", key=f"del_{f['id']}"):
+                            service_drive.files().delete(fileId=f['id']).execute()
+                            st.rerun()
