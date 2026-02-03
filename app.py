@@ -955,27 +955,48 @@ elif opcion == "Diseño":
                 if archivo:
                     try:
                         import mimetypes
-                        # SI NO EXISTE LA CARPETA, LA CREAMOS RECIÉN ACÁ
-                        if not id_subcarpeta:
-                            id_subcarpeta = crear_carpeta_empresa(empresa_f)
-                        
+                        # 1. Definimos el tipo de archivo
                         mime_type = mimetypes.guess_type(archivo.name)[0] or 'application/octet-stream'
                         file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
-                        media = MediaIoBaseUpload(archivo, mimetype=mime_type, resumable=True)
                         
-                        # Subida del archivo
-                        file_drive = service_drive.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                        # 2. SUBIDA SIMPLE (Sin resumable para evitar error de cuota inicial)
+                        media = MediaIoBaseUpload(archivo, mimetype=mime_type, resumable=False)
                         
-                        # Transferencia de propiedad a tu mail
-                        permission = {'type': 'user', 'role': 'owner', 'emailAddress': 'victorio.albani@gmail.com'}
-                        service_drive.permissions().create(fileId=file_drive.get('id'), body=permission, transferOwnership=True).execute()
+                        # Crear el archivo
+                        file_drive = service_drive.files().create(
+                            body=file_metadata, 
+                            media_body=media, 
+                            fields='id'
+                        ).execute()
+                        
+                        file_id = file_drive.get('id')
 
-                        st.success(f"✅ Carpeta gestionada y archivo '{archivo.name}' guardado con éxito.")
+                        # 3. TRANSFERENCIA DE PROPIEDAD INMEDIATA
+                        # Esto asegura que el archivo cuente en tus 15GB+ personales
+                        new_permission = {
+                            'type': 'user',
+                            'role': 'owner',
+                            'emailAddress': 'victorio.albani@gmail.com'
+                        }
+                        
+                        # Agregamos el permiso y transferimos
+                        service_drive.permissions().create(
+                            fileId=file_id,
+                            body=new_permission,
+                            transferOwnership=True,
+                            # Este parámetro es vital para que no falle el cambio de dueño
+                            moveToNewOwnersRoot=True 
+                        ).execute()
+
+                        st.success(f"✅ ¡{archivo.name} subido con éxito a tu espacio personal!")
+                        st.balloons()
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Error: {e}")
-                else:
-                    st.warning("Por favor, seleccioná un archivo primero.")
+                        # Si falla por cuota, te damos un mensaje más claro de qué revisar
+                        if "storageQuotaExceeded" in str(e):
+                            st.error("❌ Error de Espacio: La cuenta de servicio sigue bloqueada por cuota. Intentá subir un archivo más liviano (menos de 1MB) para probar si el cambio de dueño funciona.")
+                        else:
+                            st.error(f"❌ Error al subir: {e}")
 
         with t_ver:
             st.subheader(f"Documentos de {empresa_f}")
