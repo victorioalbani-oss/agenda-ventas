@@ -784,25 +784,30 @@ elif opcion == "Historial Empresas":
                 st.write(f"**Dato Extra:** {c.get('Extra', 'N/A')}")
 
            # --- SECCIÓN BITÁCORA: TABLA ESTILIZADA ---
+            st.write("---")
+            st.subheader("📝 Bitácora de Gestiones")
+
             if not df_bit_f.empty:
-                # 1. Aseguramos que la fecha se vea bien (día/mes/año)
+                # 1. Copiamos y preparamos los datos
                 df_temp = df_bit_f.copy()
+                
+                # 2. Formateamos la fecha (Día/Mes/Año)
                 if 'Fecha' in df_temp.columns:
                     df_temp['Fecha'] = pd.to_datetime(df_temp['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y')
                 
-                # 2. Ordenamos: Lo más reciente arriba
-                df_view = df_temp.sort_index(ascending=False)
+                # 3. Filtramos para mostrar SOLO Fecha y Detalle
+                # Usamos una lista de columnas existentes para evitar errores si cambia el Excel
+                cols_a_mostrar = [col for col in ["Fecha", "Detalle"] if col in df_temp.columns]
+                df_view = df_temp[cols_a_mostrar].sort_index(ascending=False)
 
-                # 3. Renderizado de tabla profesional
+                # 4. Renderizado de tabla limpia y ancha
                 st.dataframe(
                     df_view,
                     use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "Fecha": st.column_config.TextColumn("📅 Fecha"),
-                        "Usuario": st.column_config.TextColumn("👤 Autor"),
-                        "Detalle": st.column_config.TextColumn("📄 Detalle de Gestión"),
-                        "Resultado": st.column_config.TextColumn("🎯 Resultado")
+                        "Fecha": st.column_config.TextColumn("📅 Fecha", width="small"),
+                        "Detalle": st.column_config.TextColumn("📄 Detalles de la Gestión", width="large")
                     }
                 )
             else: 
