@@ -783,10 +783,33 @@ elif opcion == "Historial Empresas":
                 st.write(f"**Mails:** {c['M1']} / {c.get('M2','')}")
                 st.write(f"**Dato Extra:** {c.get('Extra', 'N/A')}")
 
+            # --- SECCIÓN BITÁCORA MEJORADA ---
             st.write("---")
             st.subheader("📝 Bitácora de Gestiones")
-            if not df_bit_f.empty: 
-                st.dataframe(df_bit_f, use_container_width=True)
+            
+            if not df_bit_f.empty:
+                # Ordenamos por fecha para que la más reciente aparezca arriba
+                df_bit_f['Fecha'] = pd.to_datetime(df_bit_f['Fecha']).dt.date
+                df_bit_f = df_bit_f.sort_values(by='Fecha', ascending=False)
+
+                for _, fila in df_bit_f.iterrows():
+                    # Creamos una tarjeta visual para cada entrada de la bitácora
+                    with st.container():
+                        col_date, col_txt = st.columns([1, 4])
+                        with col_date:
+                            st.info(f"📅 **{fila['Fecha']}**")
+                        with col_txt:
+                            # Usamos un expander para que el historial no sea gigante, 
+                            # pero mostramos el inicio del detalle
+                            usuario = fila.get('Usuario', 'S/U')
+                            detalle = fila.get('Detalle', 'Sin detalle')
+                            
+                            with st.expander(f"👤 {usuario} - {detalle[:50]}..."):
+                                st.write(f"**Detalle completo:**")
+                                st.write(detalle)
+                                if 'Resultado' in fila and fila['Resultado']:
+                                    st.write(f"**🎯 Resultado:** {fila['Resultado']}")
+                        st.write("") # Espaciador entre tarjetas
             else: 
                 st.info("No hay gestiones en la bitácora.")
 
