@@ -919,110 +919,57 @@ elif opcion == "Historial Empresas":
             """
             st.download_button("📥 DESCARGAR REPORTE GLOBAL (.HTML)", data=html_final, file_name=f"Reporte_{empresa_f}.html", mime="text/html", use_container_width=True, type="primary")
 
-# --- MÓDULO DISEÑO (MEJORADO: CREACIÓN SOLO AL SUBIR) ---
+# --- MÓDULO DISEÑO (VISUALIZADOR Y GESTOR DE DRIVE) ---
 elif opcion == "Diseño":
     st.header("🎨 Gestión de Documentación Técnica")
     
     if not st.session_state.db_contactos:
-        st.warning("No hay empresas registradas para asociar archivos.")
+        st.warning("No hay empresas registradas.")
     else:
-        # 1. Selección de Empresa
         nombres_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
         empresa_f = st.selectbox("📂 Seleccioná la empresa:", nombres_empresas)
 
-        # --- FUNCIONES DE APOYO ---
         def buscar_carpeta_empresa(nombre):
-            """Busca la carpeta pero NO la crea."""
             query = f"name = '{nombre}' and '{ID_CARPETA_RAIZ}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
             res = service_drive.files().list(q=query).execute()
             folders = res.get('files', [])
             return folders[0]['id'] if folders else None
 
-        def crear_carpeta_empresa(nombre):
-            """Crea la carpeta de la empresa."""
-            meta = {'name': nombre, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [ID_CARPETA_RAIZ]}
-            new_folder = service_drive.files().create(body=meta, fields='id').execute()
-            return new_folder.get('id')
-
-        # Buscamos si ya existe para saber qué mostrar en la pestaña "Ver"
         id_subcarpeta = buscar_carpeta_empresa(empresa_f)
 
-        t_subir, t_ver = st.tabs(["📤 Subir Documento", "📁 Archivos de la Empresa"])
-
-        with t_subir:
-            archivo = st.file_uploader("Elegí un PDF, Excel o Imagen", type=['pdf', 'xlsx', 'xls', 'docx', 'jpg', 'png'])
-            if st.button("🚀 Subir a Drive"):
-                if archivo:
-                    try:
-                        import mimetypes
-                        # 1. Definimos el tipo de archivo
-                        mime_type = mimetypes.guess_type(archivo.name)[0] or 'application/octet-stream'
-                        file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
-                        
-                        # 2. SUBIDA SIMPLE (Sin resumable para evitar error de cuota inicial)
-                        media = MediaIoBaseUpload(archivo, mimetype=mime_type, resumable=False)
-                        
-                        # Crear el archivo
-                        file_drive = service_drive.files().create(
-                            body=file_metadata, 
-                            media_body=media, 
-                            fields='id'
-                        ).execute()
-                        
-                        file_id = file_drive.get('id')
-
-                        # 3. TRANSFERENCIA DE PROPIEDAD INMEDIATA
-                        # Esto asegura que el archivo cuente en tus 15GB+ personales
-                        new_permission = {
-                            'type': 'user',
-                            'role': 'owner',
-                            'emailAddress': 'victorio.albani@gmail.com'
-                        }
-                        
-                        # Agregamos el permiso y transferimos
-                        service_drive.permissions().create(
-                            fileId=file_id,
-                            body=new_permission,
-                            transferOwnership=True,
-                            # Este parámetro es vital para que no falle el cambio de dueño
-                            moveToNewOwnersRoot=True 
-                        ).execute()
-
-                        st.success(f"✅ ¡{archivo.name} subido con éxito a tu espacio personal!")
-                        st.balloons()
-                        st.rerun()
-                    except Exception as e:
-                        # Si falla por cuota, te damos un mensaje más claro de qué revisar
-                        if "storageQuotaExceeded" in str(e):
-                            st.error("❌ Error de Espacio: La cuenta de servicio sigue bloqueada por cuota. Intentá subir un archivo más liviano (menos de 1MB) para probar si el cambio de dueño funciona.")
-                        else:
-                            st.error(f"❌ Error al subir: {e}")
-
-        with t_ver:
-            st.subheader(f"Documentos de {empresa_f}")
+        if not id_subcarpeta:
+            st.info(f"💡 No hay una carpeta creada para **{empresa_f}**.")
+            if st.button(f"🆕 Crear Carpeta para {empresa_f}"):
+                meta = {'name': empresa_f, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [ID_CARPETA_RAIZ]}
+                service_drive.files().create(body=meta).execute()
+                st.success("¡Carpeta creada! Ya podés subir archivos desde tu Drive.")
+                st.rerun()
+        else:
+            st.success(f"✅ Carpeta vinculada correctamente.")
             
-            # Si no existe la carpeta, directamente sabemos que no hay archivos
-            if not id_subcarpeta:
-                st.info(f"No hay diseños ni carpetas asociadas a {empresa_f}.")
-            else:
-                res_files = service_drive.files().list(
-                    q=f"'{id_subcarpeta}' in parents and trashed = false", 
-                    fields="files(id, name, webViewLink, thumbnailLink)"
-                ).execute()
-                files = res_files.get('files', [])
+            # --- LISTADO DE ARCHIVOS ---
+            st.subheader(f"📁 Archivos de {empresa_f}")
+            res_files = service_drive.files().list(
+                q=f"'{id_subcarpeta}' in parents and trashed = false", 
+                fields="files(id, name, webViewLink, thumbnailLink)"
+            ).execute()
+            files = res_files.get('files', [])
 
-                if not files:
-                    st.info(f"La carpeta existe, pero no hay archivos cargados para {empresa_f}.")
-                else:
-                    for f in files:
-                        c1, c2, c3 = st.columns([1, 4, 1])
-                        with c1:
-                            if f.get('thumbnailLink'): st.image(f['thumbnailLink'], width=70)
-                            else: st.write("📄")
-                        with c2:
-                            st.markdown(f"**{f['name']}**")
-                            st.link_button("👁️ Ver / Descargar", f['webViewLink'])
-                        with c3:
-                            if st.button("🗑️", key=f"del_{f['id']}"):
-                                service_drive.files().delete(fileId=f['id']).execute()
-                                st.rerun()
+            if not files:
+                st.info("La carpeta está vacía. Subí los planos o archivos directamente a Google Drive.")
+            else:
+                for f in files:
+                    c1, c2, c3 = st.columns([1, 4, 1])
+                    with c1:
+                        if f.get('thumbnailLink'): st.image(f['thumbnailLink'], width=70)
+                        else: st.write("📄")
+                    with c2:
+                        st.markdown(f"**{f['name']}**")
+                        st.link_button("👁️ Ver / Descargar", f['webViewLink'])
+                    with c3:
+                        if st.button("🗑️", key=f"del_{f['id']}"):
+                            service_drive.files().delete(fileId=f['id']).execute()
+                            st.rerun()
+
+            st.write("---")
+            st.caption("🚀 Tip: Para agregar archivos, arrastralos a la carpeta correspondiente en tu Google Drive y aparecerán acá al instante.")
