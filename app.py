@@ -380,13 +380,12 @@ elif opcion == "Contactos":
 
             for _, row in detalles_lista.iterrows():
                 emp_nombre = row['Empresa']
-                ubicacion = f"{row['País']} - {row['Provincia']} ({row['Ciudad']})"
+                ubicacion = f"{row['País']} - {row['Provincia']} - ({row['Ciudad']})"
                 
                 # Mostramos la ubicación directamente en la etiqueta del expander
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}"):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
-                    st.write(f"**Teléfono:** {row.get('T1', 'S/D')}")
-                    
+                                        
                     if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
