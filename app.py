@@ -785,26 +785,27 @@ elif opcion == "Historial Empresas":
 
            # --- SECCIÓN BITÁCORA: TABLA ESTILIZADA ---
             if not df_bit_f.empty:
-                # 1. Aseguramos que la fecha se vea bien (día/mes/año)
-                df_temp = df_bit_f.copy()
-                if 'Fecha' in df_temp.columns:
-                    df_temp['Fecha'] = pd.to_datetime(df_temp['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y')
-                
-                # 2. Ordenamos: Lo más reciente arriba
-                df_view = df_temp.sort_index(ascending=False)
+                # 1. Aseguramos que la fecha se vea bien y ordenamos (la más reciente primero)
+                df_bit_f['Fecha_DT'] = pd.to_datetime(df_bit_f['Fecha'], errors='coerce')
+                df_bit_f = df_bit_f.sort_values(by='Fecha_DT', ascending=False)
 
-                # 3. Renderizado de tabla profesional
-                st.dataframe(
-                    df_view,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Fecha": st.column_config.TextColumn("📅 Fecha"),
-                        "Usuario": st.column_config.TextColumn("👤 Autor"),
-                        "Detalle": st.column_config.TextColumn("📄 Detalle de Gestión"),
-                        "Resultado": st.column_config.TextColumn("🎯 Resultado")
-                    }
-                )
+                for _, fila in df_bit_f.iterrows():
+                    # Formato de tarjeta limpia
+                    with st.container():
+                        # Usamos Markdown con un poco de estilo para que se vea como una ficha técnica
+                        fecha_str = fila['Fecha']
+                        usuario = fila.get('Usuario', 'S/U')
+                        detalle = fila.get('Detalle', 'Sin detalle')
+                        resultado = fila.get('Resultado', '')
+
+                        st.markdown(f"""
+                        <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #1f77b4; margin-bottom: 10px;">
+                            <span style="color: #1f77b4; font-weight: bold;">📅 {fecha_str}</span> | 
+                            <span style="color: #555;">👤 {usuario}</span>
+                            <p style="margin-top: 10px; font-size: 16px;">{detalle}</p>
+                            {f'<p style="color: #2e7d32; font-style: italic;"><b>🎯 Resultado:</b> {resultado}</p>' if resultado else ''}
+                        </div>
+                        """, unsafe_allow_html=True)
             else: 
                 st.info("No hay gestiones en la bitácora para esta empresa.")
                 
