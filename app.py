@@ -555,9 +555,10 @@ elif opcion == "Bitácora":
     with b2:
         st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
+            # 1. Convertimos a DataFrame para filtrar
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             
-            # Limpieza de fechas para que el filtro no falle
+            # Limpieza de fechas para visualización
             df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
             
             col_f1, col_f2 = st.columns(2)
@@ -567,7 +568,8 @@ elif opcion == "Bitácora":
             with col_f2:
                 rango = st.date_input("Rango de fechas", value=[])
 
-            # Lógica de filtrado
+            # 2. Lógica de filtrado
+            # Mantenemos los índices originales para poder borrar correctamente
             df_filtrado = df_bit.copy()
             if f_emp != "Todas":
                 df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
@@ -575,25 +577,47 @@ elif opcion == "Bitácora":
             if len(rango) == 2:
                 df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
 
-            # Muestra de tabla con las columnas correctas
+            # 3. Muestra de tabla
             st.dataframe(df_filtrado, use_container_width=True)
             
             st.write("---")
-            # Exportación simple en CSV (como tenías originalmente)
+            
+            # --- NUEVA LÓGICA DE ELIMINACIÓN SELECCIONADA ---
             if not df_filtrado.empty:
+                st.subheader("🗑️ Eliminar Registro Específico")
+                
+                # Creamos una lista de opciones que sea fácil de identificar para Vico
+                # Usamos el índice original del DataFrame para saber exactamente cuál borrar
+                opciones_borrar = {}
+                for idx, fila in df_filtrado.iterrows():
+                    # Formato: [Fecha] Empresa - Inicio del texto
+                    label = f"[{fila['Fecha']}] {fila['Empresa']} - {str(fila['Gestion'])[:40]}..."
+                    opciones_borrar[label] = idx
+                
+                seleccion_borrar = st.selectbox("Seleccioná el registro exacto a eliminar:", 
+                                               options=[""] + list(opciones_borrar.keys()))
+                
+                if st.button("❌ Confirmar Eliminación", type="secondary"):
+                    if seleccion_borrar != "":
+                        indice_real = opciones_borrar[seleccion_borrar]
+                        # Eliminamos por el índice real de la lista original
+                        st.session_state.db_bitacora.pop(indice_real)
+                        
+                        # Sincronizamos con Google Sheets
+                        sincronizar("bitacora", st.session_state.db_bitacora)
+                        st.success("✅ Registro eliminado correctamente.")
+                        st.rerun()
+                    else:
+                        st.warning("Por favor, seleccioná un registro de la lista.")
+
+                # Exportación CSV
                 csv = df_filtrado.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label=f"📥 Descargar Bitácora de {f_emp} (.CSV)",
+                    label=f"📥 Descargar esta vista (.CSV)",
                     data=csv,
-                    file_name=f"bitacora_{f_emp}.csv",
+                    file_name=f"bitacora_filtrada.csv",
                     mime="text/csv",
                 )
-
-            if st.button("🗑️ Eliminar último registro cargado"):
-                if len(st.session_state.db_bitacora) > 0:
-                    st.session_state.db_bitacora.pop()
-                    sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.rerun()
         else:
             st.info("La bitácora está vacía.")
 
