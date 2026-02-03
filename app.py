@@ -347,9 +347,11 @@ elif opcion == "Contactos":
                     st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
-    # --- LISTAS DE SEGUIMIENTO (Sin cambios, pero asegurando renderizado) ---
+    # --- LISTAS DE SEGUIMIENTO (CON INFORMACIÓN GEOGRÁFICA) ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
+        
+        # 1. Selector para añadir nuevas empresas
         if st.session_state.db_contactos:
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
             col_add, col_btn = st.columns([3, 1])
@@ -364,16 +366,36 @@ elif opcion == "Contactos":
                         sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
 
+        # 2. Renderizado de la lista con detalles de País, Provincia y Ciudad
         lista = st.session_state[lista_key]
         if lista:
-            for emp_nombre in lista:
-                with st.expander(f"🏢 {emp_nombre}"):
-                    if st.button(f"Quitar", key=f"del_{lista_key}_{emp_nombre}"):
+            # Creamos un DataFrame para cruzar los datos y poder ordenar por ubicación
+            df_contactos = pd.DataFrame(st.session_state.db_contactos)
+            
+            # Buscamos los datos de las empresas que están en esta lista específica
+            detalles_lista = df_contactos[df_contactos['Empresa'].isin(lista)].copy()
+            
+            # Ordenamos por País -> Provincia -> Ciudad para que el listado sea coherente
+            detalles_lista = detalles_lista.sort_values(by=['País', 'Provincia', 'Ciudad'])
+
+            for _, row in detalles_lista.iterrows():
+                emp_nombre = row['Empresa']
+                ubicacion = f"{row['País']} - {row['Provincia']} ({row['Ciudad']})"
+                
+                # Mostramos la ubicación directamente en la etiqueta del expander
+                with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}"):
+                    st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
+                    st.write(f"**Teléfono:** {row.get('T1', 'S/D')}")
+                    
+                    if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                         sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
+        else:
+            st.info(f"No hay empresas en la lista de {titulo}.")
 
+    # Llamadas a las pestañas
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
     with t_int: render_lista_seguimiento("Clientes Interesados", "list_interesados")
     with t_vis: render_lista_seguimiento("Clientes por Visitar", "list_visitar")
