@@ -4,6 +4,7 @@ from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from google.oauth2 import service_account
 
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
@@ -11,10 +12,13 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Reutilizamos las credenciales que ya tenés configuradas para Sheets
-credentials = conn._instance._creds 
+# --- CONEXIÓN A DRIVE REPARADA ---
+creds_dict = st.secrets["connections"]["gsheets"]
+credentials = service_account.Credentials.from_service_account_info(creds_dict)
+
 service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
+# --------------------------------
 
 # --- INICIO DEL BLOQUE DE LOGIN (PONELO ACÁ) ---
 def login_nube():
