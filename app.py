@@ -6,6 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 
+# --- INICIO DE BLOQUEO CRAGAS CON DRIVES Y MENÚ LATERAL --- LINEA 18
 # --- MÓDULO PRODUCTOS --- LINEA 132
 # --- MÓDULO CONTACTOS --- LINEA 219
 # --- MÓDULO ÓRDENES DE COMPRA --- LINEA 414
