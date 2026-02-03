@@ -784,13 +784,30 @@ elif opcion == "Historial Empresas":
                 st.write(f"**Dato Extra:** {c.get('Extra', 'N/A')}")
 
            # --- SECCIÓN BITÁCORA: TABLA ESTILIZADA ---
-            st.write("---")
-            st.subheader("📝 Bitácora de Gestiones")
-            
-            
-            else: 
-                st.info("No hay gestiones en la bitácora.")
+            if not df_bit_f.empty:
+                # 1. Aseguramos que la fecha se vea bien (día/mes/año)
+                df_temp = df_bit_f.copy()
+                if 'Fecha' in df_temp.columns:
+                    df_temp['Fecha'] = pd.to_datetime(df_temp['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y')
+                
+                # 2. Ordenamos: Lo más reciente arriba
+                df_view = df_temp.sort_index(ascending=False)
 
+                # 3. Renderizado de tabla profesional
+                st.dataframe(
+                    df_view,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Fecha": st.column_config.TextColumn("📅 Fecha"),
+                        "Usuario": st.column_config.TextColumn("👤 Autor"),
+                        "Detalle": st.column_config.TextColumn("📄 Detalle de Gestión"),
+                        "Resultado": st.column_config.TextColumn("🎯 Resultado")
+                    }
+                )
+            else: 
+                st.info("No hay gestiones en la bitácora para esta empresa.")
+                
             st.write("---")
             st.subheader("🛒 Historial de Órdenes de Compra")
             if not df_oc_f.empty:
