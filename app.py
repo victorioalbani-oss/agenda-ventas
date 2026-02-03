@@ -919,28 +919,23 @@ elif opcion == "Historial Empresas":
             """
             st.download_button("📥 DESCARGAR REPORTE GLOBAL (.HTML)", data=html_final, file_name=f"Reporte_{empresa_f}.html", mime="text/html", use_container_width=True, type="primary")
 
-# --- MÓDULO DISEÑO (CREACIÓN DE CARPETAS Y GESTIÓN DE ARCHIVOS) ---
+# --- MÓDULO DISEÑO (CON TRANSFERENCIA DE PROPIEDAD PARA ESPACIO) ---
 elif opcion == "Diseño":
     st.header("🎨 Gestión de Documentación Técnica")
     
     if not st.session_state.db_contactos:
         st.warning("No hay empresas registradas para asociar archivos.")
     else:
-        # 1. Selección de Empresa
         nombres_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
         empresa_f = st.selectbox("📂 Seleccioná la empresa:", nombres_empresas)
 
-        # Función para buscar o crear la subcarpeta de la empresa automáticamente
         def obtener_o_crear_carpeta(nombre):
             query = f"name = '{nombre}' and '{ID_CARPETA_RAIZ}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
             res = service_drive.files().list(q=query).execute()
             folders = res.get('files', [])
-            if folders: 
-                return folders[0]['id']
-            # Si no existe, la crea
+            if folders: return folders[0]['id']
             meta = {'name': nombre, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [ID_CARPETA_RAIZ]}
-            new_folder = service_drive.files().create(body=meta, fields='id').execute()
-            return new_folder.get('id')
+            return service_drive.files().create(body=meta, fields='id').execute().get('id')
 
         id_subcarpeta = obtener_o_crear_carpeta(empresa_f)
         t_subir, t_ver = st.tabs(["📤 Subir Documento", "📁 Archivos de la Empresa"])
@@ -955,27 +950,27 @@ elif opcion == "Diseño":
                         file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
                         media = MediaIoBaseUpload(archivo, mimetype=mime_type, resumable=True)
                         
-                        # 1. Creamos el archivo
-                        file = service_drive.files().create(
+                        # 1. Creamos el archivo (Usa cuota temporal)
+                        file_drive = service_drive.files().create(
                             body=file_metadata, 
                             media_body=media, 
                             fields='id'
                         ).execute()
                         
-                        # 2. TRUCO DE INGENIERO: Transferimos la propiedad a tu mail personal
-                        # para que use tu cuota de espacio y no la de la cuenta de servicio
+                        # 2. TRUCO DE INGENIERO: Transferimos la propiedad a tu cuenta personal
+                        # Esto hace que el archivo use TU espacio de Drive y no el de la App
                         permission = {
                             'type': 'user',
                             'role': 'owner',
-                            'emailAddress': 'victorio.albani@gmail.com' # Tu mail que es dueño de la carpeta
+                            'emailAddress': 'victorio.albani@gmail.com'
                         }
                         service_drive.permissions().create(
-                            fileId=file.get('id'),
+                            fileId=file_drive.get('id'),
                             body=permission,
-                            transferOwnership=True # Esto es la clave
+                            transferOwnership=True 
                         ).execute()
 
-                        st.success(f"✅ ¡{archivo.name} guardado con éxito!")
+                        st.success(f"✅ ¡{archivo.name} guardado con éxito en tu Drive personal!")
                         st.balloons()
                         st.rerun()
                     except Exception as e:
@@ -995,10 +990,8 @@ elif opcion == "Diseño":
                 for f in files:
                     c1, c2, c3 = st.columns([1, 4, 1])
                     with c1:
-                        if f.get('thumbnailLink'): 
-                            st.image(f['thumbnailLink'], width=70)
-                        else: 
-                            st.write("📄")
+                        if f.get('thumbnailLink'): st.image(f['thumbnailLink'], width=70)
+                        else: st.write("📄")
                     with c2:
                         st.markdown(f"**{f['name']}**")
                         st.link_button("👁️ Ver / Descargar", f['webViewLink'])
