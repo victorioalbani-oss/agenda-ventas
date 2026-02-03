@@ -951,25 +951,35 @@ elif opcion == "Diseño":
                 if archivo:
                     try:
                         import mimetypes
-                        # Detectamos el tipo de archivo (MIME) de forma profesional
                         mime_type = mimetypes.guess_type(archivo.name)[0] or 'application/octet-stream'
-                        
                         file_metadata = {'name': archivo.name, 'parents': [id_subcarpeta]}
-                        
-                        # Usamos resumable=True para que no falle la subida
                         media = MediaIoBaseUpload(archivo, mimetype=mime_type, resumable=True)
                         
-                        service_drive.files().create(
+                        # 1. Creamos el archivo
+                        file = service_drive.files().create(
                             body=file_metadata, 
                             media_body=media, 
                             fields='id'
                         ).execute()
                         
-                        st.success(f"✅ ¡{archivo.name} guardado correctamente en {empresa_f}!")
+                        # 2. TRUCO DE INGENIERO: Transferimos la propiedad a tu mail personal
+                        # para que use tu cuota de espacio y no la de la cuenta de servicio
+                        permission = {
+                            'type': 'user',
+                            'role': 'owner',
+                            'emailAddress': 'victorio.albani@gmail.com' # Tu mail que es dueño de la carpeta
+                        }
+                        service_drive.permissions().create(
+                            fileId=file.get('id'),
+                            body=permission,
+                            transferOwnership=True # Esto es la clave
+                        ).execute()
+
+                        st.success(f"✅ ¡{archivo.name} guardado con éxito!")
                         st.balloons()
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Error técnico al subir: {e}")
+                        st.error(f"❌ Error de cuota: {e}")
 
         with t_ver:
             st.subheader(f"Documentos en Drive: {empresa_f}")
