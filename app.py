@@ -367,51 +367,56 @@ elif opcion == "Contactos":
                     st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
-    # --- LISTAS DE SEGUIMIENTO BLINDADAS CONTRA DUPLICADOS ---
+    # --- FUNCION DE LISTAS TOTALMENTE BLINDADA ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
-        # 1. Selector para añadir nuevas empresas
+        # 1. BLOQUE DE AÑADIR (Separado con llave única por pestaña)
         if st.session_state.db_contactos:
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
-            col_add, col_btn = st.columns([3, 1])
-            with col_add:
-                # LLAVE ÚNICA PARA EL SELECTOR: Evita choques entre pestañas
-                emp_a_agregar = st.selectbox(
-                    f"Añadir a {titulo}:", 
-                    [""] + nombres_totales, 
-                    key=f"sel_seguimiento_{lista_key}" # Identificador único por lista
-                )
-            with col_btn:
-                st.write("##")
-                # LLAVE ÚNICA PARA EL BOTÓN MÁS: Evita choques entre pestañas
-                if st.button("➕", key=f"btn_add_seguimiento_{lista_key}"):
-                    if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
-                        st.session_state[lista_key].append(emp_a_agregar)
-                        df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        sincronizar(lista_key, df_p.to_dict('records'))
-                        st.rerun()
+            
+            # Usamos un contenedor con llave única para este bloque
+            with st.container():
+                col_add, col_btn = st.columns([3, 1])
+                with col_add:
+                    # CLAVE UNICA PARA EL BUSCADOR (Evita el error de duplicado)
+                    emp_a_agregar = st.selectbox(
+                        f"Seleccionar para {titulo}", 
+                        [""] + nombres_totales, 
+                        key=f"search_{lista_key}" # Identificador único por pestaña
+                    )
+                with col_btn:
+                    st.write("##")
+                    # CLAVE UNICA PARA EL BOTON +
+                    if st.button("➕", key=f"add_btn_{lista_key}"):
+                        if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
+                            st.session_state[lista_key].append(emp_a_agregar)
+                            df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                            sincronizar(lista_key, df_p.to_dict('records'))
+                            st.rerun()
 
-        # 2. Renderizado de la lista
-        lista = st.session_state[lista_key]
+        st.write("---")
+
+        # 2. RENDERIZADO DE LA LISTA (Con llaves dinámicas por empresa)
+        lista = st.session_state.get(lista_key, [])
         if lista:
             df_contactos = pd.DataFrame(st.session_state.db_contactos)
             detalles_lista = df_contactos[df_contactos['Empresa'].isin(lista)].copy()
             detalles_lista = detalles_lista.sort_values(by=['País', 'Provincia', 'Ciudad'])
 
-            for _, row in detalles_lista.iterrows():
+            for i, row in detalles_lista.iterrows():
                 emp_nombre = row['Empresa']
                 ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
                 
-                # LLAVE ÚNICA PARA EL EXPANDER: Permite la misma empresa en múltiples listas
-                expander_key = f"exp_{lista_key}_{emp_nombre}"
+                # Creamos una llave que combina PESTAÑA + EMPRESA + INDICE
+                # Esto es imposible que se duplique
+                llave_unica = f"item_{lista_key}_{emp_nombre}_{i}"
+                
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
-                    # LLAVE ÚNICA DEFINITIVA PARA EL BOTÓN QUITAR
-                    # Formato: "quitar_list_visitar_EmpresaA"
-                    # Esto garantiza que cada botón tenga un nombre interno distinto en cada pestaña
-                    if st.button(f"Quitar de {titulo}", key=f"btn_del_{lista_key}_{emp_nombre}"):
+                    # EL BOTON DE QUITAR AHORA TIENE UN ID TOTALMENTE UNICO
+                    if st.button(f"Quitar de {titulo}", key=f"del_{llave_unica}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                         sincronizar(lista_key, df_p.to_dict('records'))
