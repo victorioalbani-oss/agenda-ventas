@@ -368,6 +368,7 @@ elif opcion == "Contactos":
                     st.rerun()
 
     # --- LISTAS DE SEGUIMIENTO ---
+    # --- LISTAS DE SEGUIMIENTO CORREGIDAS ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
@@ -376,38 +377,36 @@ elif opcion == "Contactos":
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
             col_add, col_btn = st.columns([3, 1])
             with col_add:
-                emp_a_agregar = st.selectbox(f"Añadir a {titulo}:", [""] + nombres_totales, key=f"sel_{lista_key}")
+                # Usamos lista_key en la llave del selectbox para que no choque
+                emp_a_agregar = st.selectbox(f"Añadir a {titulo}:", [""] + nombres_totales, key=f"sel_box_{lista_key}")
             with col_btn:
                 st.write("##")
-                if st.button("➕", key=f"btn_add_{lista_key}"):
+                if st.button("➕", key=f"btn_add_plus_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                         sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
 
-        # 2. Renderizado de la lista con detalles de País, Provincia y Ciudad
+        # 2. Renderizado de la lista
         lista = st.session_state[lista_key]
         if lista:
-            # Creamos un DataFrame para cruzar los datos y poder ordenar por ubicación
             df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            
-            # Buscamos los datos de las empresas que están en esta lista específica
             detalles_lista = df_contactos[df_contactos['Empresa'].isin(lista)].copy()
-            
-            # Ordenamos por País -> Provincia -> Ciudad para que el listado sea coherente
             detalles_lista = detalles_lista.sort_values(by=['País', 'Provincia', 'Ciudad'])
 
             for _, row in detalles_lista.iterrows():
                 emp_nombre = row['Empresa']
                 ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
                 
-                # Usamos una key única combinando lista y empresa para el expander
-                with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}"):
+                # LLAVE ÚNICA PARA EL EXPANDER
+                with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
-                    # LLAVE ÚNICA: Combinamos el ID de la lista con el nombre de la empresa
-                    # Esto permite que una empresa esté en varias listas sin tirar error
+                    # --- LA SOLUCIÓN ESTÁ AQUÍ ---
+                    # Combinamos la lista_key con el nombre de la empresa. 
+                    # Ejemplo: "quitar_list_visitar_EmpresaA" y "quitar_list_otros_EmpresaA"
+                    # Ahora son IDs distintos y no chocan.
                     if st.button(f"Quitar de {titulo}", key=f"quitar_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
@@ -415,7 +414,6 @@ elif opcion == "Contactos":
                         st.rerun()
         else:
             st.info(f"No hay empresas en la lista de {titulo}.")
-
     # Llamadas a las pestañas
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
     with t_int: render_lista_seguimiento("Clientes Interesados", "list_interesados")
