@@ -406,8 +406,9 @@ elif opcion == "Contactos":
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}"):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
-                    # LLAVE CORREGIDA: Agregamos el prefijo de la pestaña para que sea única
-                    if st.button(f"Quitar de {titulo}", key=f"btn_remove_{lista_key}_{emp_nombre}"):
+                    # LLAVE ÚNICA: Combinamos el ID de la lista con el nombre de la empresa
+                    # Esto permite que una empresa esté en varias listas sin tirar error
+                    if st.button(f"Quitar de {titulo}", key=f"quitar_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                         sincronizar(lista_key, df_p.to_dict('records'))
