@@ -367,27 +367,23 @@ elif opcion == "Contactos":
                     st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
-    # --- FUNCION DE LISTAS TOTALMENTE BLINDADA ---
+    # --- FUNCION DE LISTAS CON BITÁCORA INTEGRADA ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
-        # 1. BLOQUE DE AÑADIR (Separado con llave única por pestaña)
+        # 1. BLOQUE DE AÑADIR
         if st.session_state.db_contactos:
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
-            
-            # Usamos un contenedor con llave única para este bloque
             with st.container():
                 col_add, col_btn = st.columns([3, 1])
                 with col_add:
-                    # CLAVE UNICA PARA EL BUSCADOR (Evita el error de duplicado)
                     emp_a_agregar = st.selectbox(
                         f"Seleccionar para {titulo}", 
                         [""] + nombres_totales, 
-                        key=f"search_{lista_key}" # Identificador único por pestaña
+                        key=f"search_{lista_key}"
                     )
                 with col_btn:
                     st.write("##")
-                    # CLAVE UNICA PARA EL BOTON +
                     if st.button("➕", key=f"add_btn_{lista_key}"):
                         if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                             st.session_state[lista_key].append(emp_a_agregar)
@@ -397,25 +393,56 @@ elif opcion == "Contactos":
 
         st.write("---")
 
-        # 2. RENDERIZADO DE LA LISTA (Con llaves dinámicas por empresa)
+        # 2. RENDERIZADO DE LA LISTA
         lista = st.session_state.get(lista_key, [])
         if lista:
             df_contactos = pd.DataFrame(st.session_state.db_contactos)
+            # Traemos la bitácora completa para filtrar
+            df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
+            
             detalles_lista = df_contactos[df_contactos['Empresa'].isin(lista)].copy()
             detalles_lista = detalles_lista.sort_values(by=['País', 'Provincia', 'Ciudad'])
 
             for i, row in detalles_lista.iterrows():
                 emp_nombre = row['Empresa']
                 ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
-                
-                # Creamos una llave que combina PESTAÑA + EMPRESA + INDICE
-                # Esto es imposible que se duplique
                 llave_unica = f"item_{lista_key}_{emp_nombre}_{i}"
                 
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
-                    # EL BOTON DE QUITAR AHORA TIENE UN ID TOTALMENTE UNICO
+                    # --- NUEVA LÓGICA: MOSTRAR BITÁCORA ASOCIADA ---
+                    if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
+                        # Filtramos la bitácora para esta empresa específica
+                        df_bit_emp = df_bit_all[df_bit_all['Empresa'] == emp_nombre].copy()
+                        
+                        if not df_bit_emp.empty:
+                            st.markdown("---")
+                            st.caption("📝 Últimas gestiones en Bitácora:")
+                            
+                            # Formateamos fecha si existe
+                            if 'Fecha' in df_bit_emp.columns:
+                                df_bit_emp['Fecha'] = pd.to_datetime(df_bit_emp['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y')
+                            
+                            # Seleccionamos solo Fecha y Gestion (o Detalle)
+                            col_g = "Gestion" if "Gestion" in df_bit_emp.columns else "Detalle"
+                            df_view_bit = df_bit_emp[["Fecha", col_g]].sort_index(ascending=False)
+                            
+                            # Mostramos una tabla compacta
+                            st.dataframe(
+                                df_view_bit, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                column_config={
+                                    "Fecha": st.column_config.TextColumn("📅", width="small"),
+                                    col_g: st.column_config.TextColumn("Gestión")
+                                }
+                            )
+                        else:
+                            st.info("No hay gestiones registradas para esta empresa.")
+                    
+                    st.write("") # Espacio
+                    # BOTON DE QUITAR
                     if st.button(f"Quitar de {titulo}", key=f"del_{llave_unica}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
