@@ -402,11 +402,12 @@ elif opcion == "Contactos":
                 emp_nombre = row['Empresa']
                 ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
                 
-                # Mostramos la ubicación directamente en la etiqueta del expander
+                # Usamos una key única combinando lista y empresa para el expander
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}"):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
-                                        
-                    if st.button(f"Quitar de {titulo}", key=f"del_{lista_key}_{emp_nombre}"):
+                    
+                    # LLAVE CORREGIDA: Agregamos el prefijo de la pestaña para que sea única
+                    if st.button(f"Quitar de {titulo}", key=f"btn_remove_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                         sincronizar(lista_key, df_p.to_dict('records'))
