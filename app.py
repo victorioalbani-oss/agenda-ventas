@@ -367,8 +367,7 @@ elif opcion == "Contactos":
                     st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
-    # --- LISTAS DE SEGUIMIENTO ---
-    # --- LISTAS DE SEGUIMIENTO CORREGIDAS ---
+    # --- LISTAS DE SEGUIMIENTO BLINDADAS CONTRA DUPLICADOS ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
@@ -377,11 +376,16 @@ elif opcion == "Contactos":
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
             col_add, col_btn = st.columns([3, 1])
             with col_add:
-                # Usamos lista_key en la llave del selectbox para que no choque
-                emp_a_agregar = st.selectbox(f"Añadir a {titulo}:", [""] + nombres_totales, key=f"sel_box_{lista_key}")
+                # LLAVE ÚNICA PARA EL SELECTOR: Evita choques entre pestañas
+                emp_a_agregar = st.selectbox(
+                    f"Añadir a {titulo}:", 
+                    [""] + nombres_totales, 
+                    key=f"sel_seguimiento_{lista_key}" # Identificador único por lista
+                )
             with col_btn:
                 st.write("##")
-                if st.button("➕", key=f"btn_add_plus_{lista_key}"):
+                # LLAVE ÚNICA PARA EL BOTÓN MÁS: Evita choques entre pestañas
+                if st.button("➕", key=f"btn_add_seguimiento_{lista_key}"):
                     if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                         st.session_state[lista_key].append(emp_a_agregar)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
@@ -399,21 +403,22 @@ elif opcion == "Contactos":
                 emp_nombre = row['Empresa']
                 ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
                 
-                # LLAVE ÚNICA PARA EL EXPANDER
+                # LLAVE ÚNICA PARA EL EXPANDER: Permite la misma empresa en múltiples listas
+                expander_key = f"exp_{lista_key}_{emp_nombre}"
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
-                    # --- LA SOLUCIÓN ESTÁ AQUÍ ---
-                    # Combinamos la lista_key con el nombre de la empresa. 
-                    # Ejemplo: "quitar_list_visitar_EmpresaA" y "quitar_list_otros_EmpresaA"
-                    # Ahora son IDs distintos y no chocan.
-                    if st.button(f"Quitar de {titulo}", key=f"quitar_{lista_key}_{emp_nombre}"):
+                    # LLAVE ÚNICA DEFINITIVA PARA EL BOTÓN QUITAR
+                    # Formato: "quitar_list_visitar_EmpresaA"
+                    # Esto garantiza que cada botón tenga un nombre interno distinto en cada pestaña
+                    if st.button(f"Quitar de {titulo}", key=f"btn_del_{lista_key}_{emp_nombre}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                         sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
         else:
             st.info(f"No hay empresas en la lista de {titulo}.")
+            
     # Llamadas a las pestañas
     with t_act: render_lista_seguimiento("Clientes Activos", "list_activos")
     with t_int: render_lista_seguimiento("Clientes Interesados", "list_interesados")
