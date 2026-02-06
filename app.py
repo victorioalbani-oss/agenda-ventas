@@ -25,25 +25,26 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # 2. Conexión Directa
 # --- BLOQUE DE CONEXIÓN FINAL ---
 # --- CONEXIÓN ESTABLE ---
+# --- CONEXIÓN BLINDADA ---
 try:
-    # 1. Obtenemos los secretos
+    # 1. Cargamos el diccionario desde Secrets
     creds_dict = dict(st.secrets["connections"]["gsheets"])
     
-    # 2. Reparamos la llave por si acaso quedaron \n sueltos
+    # 2. LIMPIEZA: Arreglamos posibles restos de caracteres de escape
     if "private_key" in creds_dict:
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
 
-    # 3. Conexión a Sheets (IMPORTANTE: Quitamos el type=... de aquí)
-    conn = st.connection("gsheets", **creds_dict)
-    
-    # 4. Credenciales para Drive
+    # 3. Conexión a Drive
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
-
+    
+    # 4. Conexión a Sheets (IMPORTANTE: Usamos ** para pasar el type que ya está en Secrets)
+    conn = st.connection("gsheets", **creds_dict)
+    
 except Exception as e:
-    st.error(f"Falla en la base: {e}")
+    st.error(f"⚠️ Error de Conexión: {e}")
     st.stop()
   
 
