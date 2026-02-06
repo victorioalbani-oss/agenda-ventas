@@ -636,6 +636,51 @@ elif opcion == "Bitácora":
                     st.success("✅ Gestión y aviso guardados correctamente.")
                     st.rerun()
 
+    with tab_historial:
+        st.subheader("📋 Historial de Gestiones")
+        if st.session_state.db_bitacora:
+            # Convertimos la lista de la sesión en un DataFrame para mostrarlo
+            df_historial = pd.DataFrame(st.session_state.db_bitacora)
+            
+            # Formateamos la columna Fecha para que se vea bien
+            df_historial["Fecha"] = pd.to_datetime(df_historial["Fecha"]).dt.date
+            
+            # Filtro rápido por empresa para que no sea un lío
+            empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
+            filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
+            
+            df_mostrar = df_historial.copy()
+            if filtro_emp != "Todas":
+                df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
+            
+            # Mostramos la tabla principal
+            st.dataframe(
+                df_mostrar.sort_values("Fecha", ascending=False), 
+                use_container_width=True, 
+                hide_index=True
+            )
+            
+            # --- OPCIÓN PARA BORRAR (Por si te equivocaste en algo) ---
+            st.write("---")
+            st.subheader("🗑️ Eliminar Registro")
+            with st.expander("Abrir panel de eliminación"):
+                # Creamos una lista de opciones clara para el selectbox
+                opciones_borrar = {
+                    f"{f['Fecha']} | {f['Empresa']} | {str(f['Gestion'])[:30]}...": i 
+                    for i, f in df_mostrar.iterrows()
+                }
+                seleccion = st.selectbox("Seleccioná el registro a borrar:", [""] + list(opciones_borrar.keys()))
+                
+                if st.button("❌ Confirmar Eliminación"):
+                    if seleccion:
+                        indice = opciones_borrar[seleccion]
+                        st.session_state.db_bitacora.pop(indice)
+                        sincronizar("bitacora", st.session_state.db_bitacora)
+                        st.success("Registro eliminado.")
+                        st.rerun()
+        else:
+            st.info("Todavía no hay nada cargado en la bitácora.")
+            
     with tab_alertas:
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
