@@ -31,25 +31,19 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 # Verificá que en tus Secrets de Streamlit la ruta sea esta
 
 try:
-    # --- DETECTOR DE CREDENCIALES ---
-    # Buscamos la llave en las dos ubicaciones posibles de Streamlit
+    # Intentamos obtener las credenciales de la estructura estándar
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
         creds_dict = st.secrets["connections"]["gsheets"]
-    elif "gsheets" in st.secrets:
-        creds_dict = st.secrets["gsheets"]
-    else:
-        st.error("❌ No se encontraron secretos. Revisá la configuración en Streamlit Cloud.")
-        st.stop()
-
-    # Validamos que el diccionario tenga lo necesario antes de usarlo
-    if "project_id" in creds_dict: # Si es el formato largo de GSheets
         credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        
+        # Construcción de servicios
         service_drive = build('drive', 'v3', credentials=credentials)
         conn = st.connection("gsheets", type=GSheetsConnection)
     else:
-        st.error("❌ El formato de los Secretos no es correcto (faltan campos de Google).")
+        st.error("❌ No se encontraron los secretos en Streamlit Cloud.")
+        st.info("Asegúrate de que tus Secrets tengan la cabecera [connections.gsheets]")
         st.stop()
-
+        
 except Exception as e:
     st.error(f"⚠️ Error Crítico de Conexión: {e}")
     st.stop()
