@@ -16,15 +16,7 @@ import json
 # --- MÓDULO DISEÑO --- LINEA 916
 
 # 1. Configuración de página
-#st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
-
-if "connections" in st.secrets:
-    try:
-        # Limpiamos posibles errores de pegado de la llave privada
-        if "private_key" in st.secrets["connections"]["gsheets"]:
-            st.secrets["connections"]["gsheets"]["private_key"] = st.secrets["connections"]["gsheets"]["private_key"].replace("\\n", "\n")
-    except:
-        pass
+st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
