@@ -21,7 +21,7 @@ try:
         "type": s["type"],
         "project_id": s["project_id"],
         "private_key_id": s["private_key_id"],
-        "private_key": s["private_key"].replace("\\n", "\n").strip(), # Limpieza clave
+     #   "private_key": s["private_key"].replace("\\n", "\n").strip(), # Limpieza clave
         "client_email": s["client_email"],
         "client_id": s["client_id"],
         "auth_uri": s["auth_uri"],
