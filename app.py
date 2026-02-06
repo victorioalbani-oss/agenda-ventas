@@ -34,20 +34,20 @@ conn = st.connection("gsheets", type=GSheetsConnection)
  #   st.error(f"⚠️ Error de Conexión: {e}")
 #    st.stop()
 
+# --- CONEXIÓN BLINDADA ---
 try:
-    # Leemos los secretos
-    res_creds = st.secrets["connections"]["gsheets"]
-    creds_dict = {k: v for k, v in res_creds.items()}
+    # 1. Cargamos el diccionario de secretos
+    creds_dict = dict(st.secrets["connections"]["gsheets"])
     
-    # Reparación manual para que Google lea la llave
+    # 2. LIMPIEZA CLAVE: Reemplazamos los saltos de línea para evitar error PEM
     if "private_key" in creds_dict:
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
 
-    # Conexiones
+    # 3. Credenciales para Drive
     credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
     
-    # Importante: No ponemos type=GSheetsConnection aquí para evitar el error de "multiple values"
+    # 4. Conexión a Sheets (IMPORTANTE: Quitamos type=GSheetsConnection de aquí)
     conn = st.connection("gsheets", **creds_dict)
     
 except Exception as e:
