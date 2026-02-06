@@ -30,47 +30,43 @@
 # --- CONEXIÓN A DRIVE REPARADA ---
 # Verificá que en tus Secrets de Streamlit la ruta sea esta
 
-# 2. CONEXIÓN A GOOGLE SHEETS Y DRIVE
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # Importante para evitar el NameError
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 import json
 
-# 1. CONFIGURACIÓN DE PÁGINA (SIEMPRE DEBE SER LA PRIMERA LÍNEA)
+# 1. Configuración de página (SIEMPRE debe ser la primera línea)
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
-# 2. CONEXIÓN BLINDADA A GOOGLE
+# 2. Conexión a Google Sheets y Drive
 try:
-    # Buscamos las credenciales en la estructura estándar de Streamlit
+    # Detector de secretos: busca en las ubicaciones estándar de Streamlit
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
         creds_info = st.secrets["connections"]["gsheets"]
     elif "gsheets" in st.secrets:
         creds_info = st.secrets["gsheets"]
     else:
-        st.error("❌ No se encontraron los Secretos (Secrets) en Streamlit Cloud.")
+        st.error("❌ No se encontraron los Secretos en Streamlit Cloud.")
         st.stop()
 
-    # Validamos que los campos esenciales existan para evitar el MalformedError
-    if "private_key" in creds_info and "client_email" in creds_info:
-        # Cargamos las credenciales para Drive y Sheets
+    # Validamos campos esenciales para evitar el MalformedError
+    if "client_email" in creds_info:
         credentials = service_account.Credentials.from_service_account_info(creds_info)
         service_drive = build('drive', 'v3', credentials=credentials)
-        
-        # Conexión oficial de Streamlit para leer las pestañas
         conn = st.connection("gsheets", type=GSheetsConnection)
     else:
-        st.error("❌ El formato de los Secretos es incorrecto (faltan campos clave).")
+        st.error("❌ El formato de los Secretos es incorrecto (faltan campos de Google).")
         st.stop()
-
+        
 except Exception as e:
     st.error(f"⚠️ Error Crítico de Conexión: {e}")
     st.stop()
 
-# 3. VARIABLES GLOBALES
+# 3. Variables Globales
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 
