@@ -581,13 +581,16 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA (VERSIÓN FINAL BLINDADA) ---
+# --- MÓDULO BITÁCORA (VERSIÓN CORREGIDA Y SEGURA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
-    # 1. DEFINICIÓN DE MESES (Necesario para evitar el KeyError)
-    dic_meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
-                 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+    # Definimos el diccionario de meses aquí mismo para evitar el KeyError
+    meses_dic = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 
+        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 
+        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
 
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
@@ -596,10 +599,10 @@ elif opcion == "Bitácora":
     
     with b1:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Primero cargá un contacto.")
+            st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
         else:
-            # TODO el formulario dentro del 'with' para que no falte el botón
-            with st.form("form_bit_integral", clear_on_submit=True):
+            # Iniciamos el formulario
+            with st.form("form_bit_vico", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
@@ -607,13 +610,14 @@ elif opcion == "Bitácora":
                 
                 st.write("---")
                 st.subheader("⏰ Recordatorio Opcional")
-                activar_rec = st.checkbox("¿Programar un recordatorio futuro?")
-                # Aquí ya no dará NameError porque timedelta viene del import general
+                activar_rec = st.checkbox("¿Programar aviso futuro?")
+                # Aquí usamos timedelta sin errores
                 fecha_rec = st.date_input("Fecha del Recordatorio", datetime.now() + timedelta(days=7))
                 
-                btn_cargar = st.form_submit_button("🚀 Cargar Bitácora")
+                # BOTÓN DE ENVÍO SIEMPRE DENTRO DEL FORM
+                submit_bit = st.form_submit_button("🚀 Cargar Bitácora")
 
-            if btn_cargar:
+            if submit_bit:
                 if emp_b and cont:
                     nuevo_registro = {
                         "Fecha": str(fecha_realizada), 
@@ -633,15 +637,7 @@ elif opcion == "Bitácora":
         if st.session_state.db_bitacora:
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
-            
-            empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-            f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso, key="fb_emp")
-            
-            df_filtrado = df_bit.copy()
-            if f_emp != "Todas": 
-                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            
-            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+            st.dataframe(df_bit, use_container_width=True, hide_index=True)
         else:
             st.info("La bitácora está vacía.")
 
@@ -650,7 +646,7 @@ elif opcion == "Bitácora":
         if st.session_state.db_bitacora:
             df_raw = pd.DataFrame(st.session_state.db_bitacora)
             
-            # Filtramos los que tienen recordatorio cargado
+            # Verificamos si existe la columna de Recordatorio
             if "Recordatorio" in df_raw.columns:
                 df_rec = df_raw[df_raw["Recordatorio"] != ""].copy()
                 
@@ -660,19 +656,17 @@ elif opcion == "Bitácora":
 
                     for i, row in df_rec.iterrows():
                         f = row["Fecha_Obj"]
-                        # Aquí usamos dic_meses definido arriba para evitar el KeyError
-                        fecha_texto = f"{f.day} de {dic_meses[f.month]} de {f.year}"
+                        # Usamos meses_dic definido al inicio del módulo
+                        # Esto soluciona el KeyError de raíz
+                        f_texto = f"{f.day} de {meses_dic.get(f.month, 'S/M')} de {f.year}"
                         
-                        es_hoy = f.date() <= datetime.now().date()
-                        icon = "🔴" if es_hoy else "📅"
+                        vencido = f.date() <= datetime.now().date()
                         
-                        with st.expander(f"{icon} {fecha_texto} | {row['Empresa']}"):
-                            st.write(f"**Gestión original:** {row['Gestion']}")
-                            if es_hoy: st.warning("⚠️ Este recordatorio requiere atención hoy.")
+                        with st.expander(f"{'🔴' if vencido else '📅'} {f_texto} | {row['Empresa']}"):
+                            st.write(f"**Gestión:** {row['Gestion']}")
+                            if vencido: st.warning("⚠️ Pendiente para hoy o fecha pasada.")
                 else:
                     st.info("No hay recordatorios programados.")
-            else:
-                st.info("No hay columna de recordatorios en la base de datos.")
 
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
