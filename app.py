@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 import json
-
+import gspread
 
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
