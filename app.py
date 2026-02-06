@@ -24,35 +24,29 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- CONEXIÓN A DRIVE REPARADA ---
 # 2. Conexión Directa
 # --- BLOQUE DE CONEXIÓN FINAL ---
+# --- CONEXIÓN ESTABLE ---
 try:
-    # 1. Traemos los secretos que ya lograste guardar
-    # Usamos .to_dict() o dict() para poder manipular los datos
+    # 1. Obtenemos los secretos
     creds_dict = dict(st.secrets["connections"]["gsheets"])
     
-    # 2. LA CURA: Convertimos los \n de texto en saltos de línea reales
-    # Esto elimina el error InvalidByte(0, 92) de una vez por todas
+    # 2. Reparamos la llave por si acaso quedaron \n sueltos
     if "private_key" in creds_dict:
-        # Reemplazamos la doble barra (texto) por salto de línea real
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
 
-    # 3. Iniciamos las credenciales de Google
-    credentials = service_account.Credentials.from_service_account_info(creds_dict)
-    
-    # 4. Conexión a Drive (para PDFs) y Sheets
-    service_drive = build('drive', 'v3', credentials=credentials)
-    
-    # IMPORTANTE: Pasamos el diccionario con ** para que use el 'type' que ya guardaste
+    # 3. Conexión a Sheets (IMPORTANTE: Quitamos el type=... de aquí)
     conn = st.connection("gsheets", **creds_dict)
     
-    # Mensaje de éxito temporal (podes borrarlo después)
-    # st.success("¡Conexión establecida con éxito!")
+    # 4. Credenciales para Drive
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    service_drive = build('drive', 'v3', credentials=credentials)
 
 except Exception as e:
-    st.error(f"Error de Conexión: {e}")
-    st.info("Revisá que la private_key en Secrets no tenga comillas dobles extra al principio o al final.")
+    st.error(f"Falla en la base: {e}")
     st.stop()
   
-service_drive = build('drive', 'v3', credentials=credentials)
+
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 
