@@ -28,7 +28,7 @@ try:
     credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
     conn = st.connection("gsheets", type=GSheetsConnection)
-#except Exception as e:
+except Exception as e:
     st.error(f"⚠️ Error de Conexión: {e}")
     st.stop()
 
