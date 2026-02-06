@@ -5,53 +5,22 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 import json
-import gspread
+
 
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # --- CONEXIÓN SEGURA Y ROBUSTA ---
 try:
-    # 1. Sacamos los datos de Secrets
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Esto es solo para la parte de Drive (PDFs)
     s = st.secrets["connections"]["gsheets"]
-    
-    # 2. Construimos el diccionario de credenciales MANUALMENTE
-    creds_info = {
-        "type": s["type"],
-        "project_id": s["project_id"],
-        "private_key_id": s["private_key_id"],
-        "private_key": s["private_key"].replace("\\n", "\n").strip(), # <--- ACÁ: Sin el # y con la coma al final
-        "client_email": s["client_email"],
-        "client_id": s["client_id"],
-        "auth_uri": s["auth_uri"],
-        "token_uri": s["token_uri"],
-        "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": s["client_x509_cert_url"]
-    }
-
-    # 3. Autorización con Scopes
-    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    credentials = service_account.Credentials.from_service_account_info(creds_info, scopes=scopes)
-    
-    # 4. Clientes de Google
+    creds_dict = dict(s)
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
-    client_sheets = gspread.authorize(credentials)
     
-    # 5. Abrir el Excel
-    sheet = client_sheets.open_by_url(s["spreadsheet"])
-    
-    # 6. MockConn (para que tu Bitácora no cambie)
-    class MockConn:
-        def read(self, worksheet):
-            wks = sheet.worksheet(worksheet)
-            return pd.DataFrame(wks.get_all_records())
-        def update(self, worksheet, data):
-            wks = sheet.worksheet(worksheet)
-            wks.clear()
-            wks.update([data.columns.values.tolist()] + data.values.tolist())
-
-    conn = MockConn()
-
 except Exception as e:
     st.error(f"Error de conexión: {e}")
     st.stop()
