@@ -30,19 +30,31 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 # --- CONEXIÓN A DRIVE REPARADA ---
 # Verificá que en tus Secrets de Streamlit la ruta sea esta
 
-# 2. Conexión simplificada
-# Usamos solo el conector oficial de Streamlit que ya tenés configurado
-conn = st.connection("gsheets", type=GSheetsConnection)
+# 2. CONEXIÓN A GOOGLE SHEETS Y DRIVE
+try:
+    # Intentamos obtener las credenciales de la estructura estándar de Secrets
+    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        creds_dict = st.secrets["connections"]["gsheets"]
+    elif "gsheets" in st.secrets:
+        creds_dict = st.secrets["gsheets"]
+    else:
+        st.error("❌ No se encontraron los Secretos en Streamlit Cloud.")
+        st.stop()
 
-# --- CARGA DE DATOS SEGURA ---
-@st.cache_data(ttl=600)
-def cargar_datos_seguro(nombre_pestaña):
-    try:
-        return conn.read(worksheet=nombre_pestaña)
-    except Exception:
-        return pd.DataFrame()
+    # Validamos que el diccionario tenga lo necesario antes de intentar la conexión
+    if "client_email" in creds_dict:
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        service_drive = build('drive', 'v3', credentials=credentials)
+        conn = st.connection("gsheets", type=GSheetsConnection)
+    else:
+        st.error("❌ El formato de los Secretos es incorrecto (faltan campos de Google).")
+        st.stop()
+        
+except Exception as e:
+    st.error(f"⚠️ Error Crítico de Conexión: {e}")
+    st.stop()
 
-# 3. Variables Globales
+# 3. VARIABLES GLOBALES
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 
