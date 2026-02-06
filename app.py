@@ -16,12 +16,11 @@ try:
     s = st.secrets["connections"]["gsheets"]
     
     # 2. Construimos el diccionario de credenciales MANUALMENTE
-    # Esto asegura que no se filtren caracteres extraños
     creds_info = {
         "type": s["type"],
         "project_id": s["project_id"],
         "private_key_id": s["private_key_id"],
-     #   "private_key": s["private_key"].replace("\\n", "\n").strip(), # Limpieza clave
+        "private_key": s["private_key"].replace("\\n", "\n").strip(), # <--- ACÁ: Sin el # y con la coma al final
         "client_email": s["client_email"],
         "client_id": s["client_id"],
         "auth_uri": s["auth_uri"],
