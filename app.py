@@ -651,7 +651,7 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- Modulo Bitacora (Versión Corregida y Estable) ----
+# --- Modulo Bitacora  ----
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad y Recordatorios")
     
@@ -696,6 +696,7 @@ elif opcion == "Bitácora":
     with tab_historial:
         st.subheader("📋 Historial de Gestiones")
         if st.session_state.db_bitacora:
+            # 1. Filtros de Visualización
             df_historial = pd.DataFrame(st.session_state.db_bitacora)
             empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
             filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
@@ -705,6 +706,38 @@ elif opcion == "Bitácora":
                 df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
             
             st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+
+            # --- 2. NUEVA SECCIÓN: ELIMINAR GESTIÓN ---
+            st.write("---")
+            with st.expander("🗑️ Eliminar una gestión del historial"):
+                # Creamos una lista de opciones legible para el usuario
+                # Usamos el índice original para borrar con precisión
+                opciones_borrar = [
+                    f"{i} | {g['Fecha']} | {g['Empresa']} | {g['Gestion'][:30]}..." 
+                    for i, g in enumerate(st.session_state.db_bitacora)
+                ]
+                
+                seleccion_borrar = st.selectbox(
+                    "Seleccioná la gestión que querés borrar definitivamente:", 
+                    ["Seleccionar..."] + opciones_borrar
+                )
+
+                if st.button("❌ Confirmar Borrado Definitivo"):
+                    if seleccion_borrar != "Seleccionar...":
+                        # Sacamos el índice (el número antes del primer '|')
+                        idx_borrar = int(seleccion_borrar.split(" | ")[0])
+                        
+                        # Eliminamos de la lista en memoria
+                        empresa_eliminada = st.session_state.db_bitacora[idx_borrar]['Empresa']
+                        st.session_state.db_bitacora.pop(idx_borrar)
+                        
+                        # Sincronizamos con la nube (Google Sheets)
+                        sincronizar("bitacora", st.session_state.db_bitacora)
+                        
+                        st.warning(f"Gestión de {empresa_eliminada} eliminada de la nube.")
+                        st.rerun()
+                    else:
+                        st.info("Por favor, seleccioná una gestión de la lista.")
         else:
             st.info("Todavía no hay nada cargado.")
             
