@@ -591,7 +591,6 @@ elif opcion == "Órdenes de Compra":
                 st.info("No hay órdenes.")
 
 # --- Modulo Bitacora ----
-# --- Modulo Bitacora ----
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad y Recordatorios")
     
