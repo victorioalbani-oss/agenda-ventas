@@ -6,6 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 import json
+import gspread
 # --- INICIO DE BLOQUEO CRAGAS CON DRIVES Y MENÚ LATERAL --- LINEA 18
 # --- MÓDULO PRODUCTOS --- LINEA 132
 # --- MÓDULO CONTACTOS --- LINEA 219
@@ -27,24 +28,40 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- CONEXIÓN ESTABLE ---
 # --- CONEXIÓN BLINDADA ---
 try:
-    # 1. Cargamos el diccionario desde Secrets
+    # 1. Cargamos los secretos
     creds_dict = dict(st.secrets["connections"]["gsheets"])
     
-    # 2. LIMPIEZA: Arreglamos posibles restos de caracteres de escape
+    # 2. Limpieza forzada de la llave (esto mata el error de bytes)
     if "private_key" in creds_dict:
+        # Quitamos cualquier carácter oculto que esté molestando
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
 
-    # 3. Conexión a Drive
-    from google.oauth2 import service_account
-    from googleapiclient.discovery import build
-    credentials = service_account.Credentials.from_service_account_info(creds_dict)
-    service_drive = build('drive', 'v3', credentials=credentials)
+    # 3. Autorización manual con Google
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
     
-    # 4. Conexión a Sheets (IMPORTANTE: Usamos ** para pasar el type que ya está en Secrets)
-    conn = st.connection("gsheets", **creds_dict)
+    # 4. Cliente de Drive y Sheets
+    service_drive = build('drive', 'v3', credentials=credentials)
+    client_sheets = gspread.authorize(credentials)
+    
+    # 5. Abrir el Excel (usamos la URL que ya tenés)
+    sheet = client_sheets.open_by_url(creds_dict["spreadsheet"])
+    
+    # --- ACÁ ESTÁ EL TRUCO PARA QUE TU CÓDIGO SIGA IGUAL ---
+    # Creamos un objeto que imite al 'conn' de Streamlit
+    class MockConn:
+        def read(self, worksheet):
+            wks = sheet.worksheet(worksheet)
+            return pd.DataFrame(wks.get_all_records())
+        def update(self, worksheet, data):
+            wks = sheet.worksheet(worksheet)
+            wks.clear()
+            wks.update([data.columns.values.tolist()] + data.values.tolist())
+
+    conn = MockConn()
     
 except Exception as e:
-    st.error(f"⚠️ Error de Conexión: {e}")
+    st.error(f"Error en conexión manual: {e}")
     st.stop()
   
 
