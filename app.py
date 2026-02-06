@@ -581,112 +581,100 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA ---
+# --- MÓDULO BITÁCORA ACTUALIZADO ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
-    # Asegurar que la base existe
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
-    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
+    # Agregamos la tercera pestaña para Recordatorios
+    b1, b2, b3 = st.tabs(["➕ Agregar Registro", "📋 Historial", "📅 Recordatorios"])
     
     with b1:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
+            st.warning("⚠️ Primero cargá un contacto.")
         else:
             with st.form("form_bit", clear_on_submit=True):
-                # Usamos los nombres actuales de la DB de contactos para que siempre estén vinculados
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-                cont = st.text_area("Detalle de la gestión") # Esto se guardará en la columna 'Gestion'
+                cont = st.text_area("Detalle de la gestión")
+                
+                # --- NUEVA SECCIÓN DE RECORDATORIO ---
+                st.write("---")
+                activar_rec = st.checkbox("¿Programar un recordatorio para el futuro?")
+                fecha_rec = st.date_input("Fecha del Recordatorio", datetime.now() + timedelta(days=7))
                 
                 if st.form_submit_button("Cargar Bitácora"):
-                    # 1. Creamos el nuevo registro (convertimos la fecha a texto para que Google no se queje)
                     nuevo_registro = {
                         "Fecha": str(fecha_realizada), 
                         "Empresa": emp_b, 
-                        "Gestion": cont 
+                        "Gestion": cont,
+                        "Recordatorio": str(fecha_rec) if activar_rec else "" # Se guarda en la nueva columna
                     }
                     
-                    # 2. Agregamos a la memoria de la App
                     st.session_state.db_bitacora.append(nuevo_registro)
-                    
-                    # 3. LA LÍNEA CLAVE: Mandamos toda la lista a Google Sheets
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    
-                    st.success(f"✅ Registro guardado para {emp_b}")
-                    st.rerun() # Esto limpia el formulario para el próximo registro
+                    st.success(f"✅ Registro guardado. {'Recordatorio fijado.' if activar_rec else ''}")
+                    st.rerun()
 
     with b2:
         st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
-            # 1. Convertimos a DataFrame para filtrar
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            
-            # Limpieza de fechas para visualización
             df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
             
+            # Filtros
             col_f1, col_f2 = st.columns(2)
             with col_f1:
                 empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso)
+                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso, key="filtro_bit_emp")
             with col_f2:
-                rango = st.date_input("Rango de fechas", value=[])
+                rango = st.date_input("Rango de fechas", value=[], key="filtro_bit_fecha")
 
-            # 2. Lógica de filtrado
-            # Mantenemos los índices originales para poder borrar correctamente
             df_filtrado = df_bit.copy()
-            if f_emp != "Todas":
-                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            
+            if f_emp != "Todas": df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
             if len(rango) == 2:
                 df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
 
-            # 3. Muestra de tabla
             st.dataframe(df_filtrado, use_container_width=True)
-            
-            st.write("---")
-            
-            # --- NUEVA LÓGICA DE ELIMINACIÓN SELECCIONADA ---
-            if not df_filtrado.empty:
-                st.subheader("🗑️ Eliminar Registro Específico")
-                
-                # Creamos una lista de opciones que sea fácil de identificar para Vico
-                # Usamos el índice original del DataFrame para saber exactamente cuál borrar
-                opciones_borrar = {}
-                for idx, fila in df_filtrado.iterrows():
-                    # Formato: [Fecha] Empresa - Inicio del texto
-                    label = f"[{fila['Fecha']}] {fila['Empresa']} - {str(fila['Gestion'])[:40]}..."
-                    opciones_borrar[label] = idx
-                
-                seleccion_borrar = st.selectbox("Seleccioná el registro exacto a eliminar:", 
-                                               options=[""] + list(opciones_borrar.keys()))
-                
-                if st.button("❌ Confirmar Eliminación", type="secondary"):
-                    if seleccion_borrar != "":
-                        indice_real = opciones_borrar[seleccion_borrar]
-                        # Eliminamos por el índice real de la lista original
-                        st.session_state.db_bitacora.pop(indice_real)
-                        
-                        # Sincronizamos con Google Sheets
-                        sincronizar("bitacora", st.session_state.db_bitacora)
-                        st.success("✅ Registro eliminado correctamente.")
-                        st.rerun()
-                    else:
-                        st.warning("Por favor, seleccioná un registro de la lista.")
-
-                # Exportación CSV
-                csv = df_filtrado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label=f"📥 Descargar esta vista (.CSV)",
-                    data=csv,
-                    file_name=f"bitacora_filtrada.csv",
-                    mime="text/csv",
-                )
         else:
             st.info("La bitácora está vacía.")
+
+    with b3:
+        st.subheader("📅 Próximos Recordatorios")
+        if st.session_state.db_bitacora:
+            df_rec = pd.DataFrame(st.session_state.db_bitacora)
+            
+            # Filtramos solo los que tienen fecha de recordatorio
+            if "Recordatorio" in df_rec.columns:
+                df_rec = df_rec[df_rec["Recordatorio"] != ""].copy()
+                
+                if not df_rec.empty:
+                    # Convertimos a fecha real para ordenar
+                    df_rec["Fecha_Obj"] = pd.to_datetime(df_rec["Recordatorio"])
+                    df_rec = df_rec.sort_values("Fecha_Obj")
+
+                    # --- FUNCIÓN PARA FORMATO DÍA MES AÑO (Texto) ---
+                    # Usamos un formato que Streamlit entienda bien
+                    meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
+                             7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+                    
+                    for _, row in df_rec.iterrows():
+                        f = row["Fecha_Obj"]
+                        fecha_texto = f"{f.day} de {meses[f.month]} de {f.year}"
+                        
+                        # Mostramos una alerta si la fecha es hoy o ya pasó
+                        es_urgente = f.date() <= datetime.now().date()
+                        
+                        with st.expander(f"{'🔴' if es_urgente else '📅'} {fecha_texto} | {row['Empresa']}"):
+                            st.write(f"**Referencia de la gestión:** {row['Gestion']}")
+                            if es_urgente: st.warning("Este recordatorio ya está en fecha o vencido.")
+                else:
+                    st.info("No hay recordatorios pendientes.")
+            else:
+                st.info("Aún no se han creado registros con recordatorios.")
 
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
