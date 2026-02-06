@@ -607,25 +607,34 @@ elif opcion == "Bitácora":
         if not st.session_state.db_contactos:
             st.warning("⚠️ Cargá un contacto primero para asociar la gestión.")
         else:
-            # 1. Sacamos el checkbox fuera del form para que sea dinámico
+            # INTERFAZ DINÁMICA FUERA DEL FORM
+            st.subheader("Cargar Nueva Gestión")
+            
+            # El checkbox fuera del form permite que la interfaz cambie al instante
             tiene_recordatorio = st.checkbox("📌 Programar Aviso Futuro")
             
-            # 2. Iniciamos el formulario
-            with st.form("form_gestion_vico", clear_on_submit=True):
+            # Contenedor para la fecha (solo aparece si el checkbox está marcado)
+            fecha_futura = None
+            if tiene_recordatorio:
+                fecha_futura = st.date_input("📅 ¿Cuándo avisar?", datetime.now() + timedelta(days=7))
+                st.info(f"Se agendará un aviso para el {fecha_futura.strftime('%d/%m/%Y')}")
+
+            # INICIO DEL FORMULARIO PARA LOS DATOS PESADOS
+            with st.form("form_gestion_vico_fijo", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Empresa", lista_empresas)
                 f_hoy = st.date_input("Fecha de hoy", datetime.now())
                 detalle = st.text_area("¿Qué se hizo?")
                 
-                # 3. La lógica dinámica: Si marcó el checkbox de arriba, mostramos el input de fecha
-                fecha_futura = None
-                if tiene_recordatorio:
-                    st.write("---")
-                    fecha_futura = st.date_input("📅 ¿Cuándo avisar?", datetime.now() + timedelta(days=7))
-                
-                if st.form_submit_button("🚀 Guardar Gestión"):
-                    # Si no marcó el checkbox o la fecha es None, guardamos "Sin aviso"
-                    valor_recordatorio = str(fecha_futura) if (tiene_recordatorio and fecha_futura) else "Sin aviso"
+                # BOTÓN DE GUARDADO
+                btn_guardar = st.form_submit_button("🚀 Guardar Gestión")
+
+            if btn_guardar:
+                if not detalle:
+                    st.error("Por favor, describí qué se hizo en la gestión.")
+                else:
+                    # Lógica de guardado usando la variable externa tiene_recordatorio
+                    valor_recordatorio = str(fecha_futura) if tiene_recordatorio else "Sin aviso"
                     
                     nuevo_registro = {
                         "Fecha": str(f_hoy),
@@ -636,7 +645,7 @@ elif opcion == "Bitácora":
                     
                     st.session_state.db_bitacora.append(nuevo_registro)
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success("✅ Gestión guardada correctamente.")
+                    st.success("✅ Gestión guardada con éxito.")
                     st.rerun()
 
     with tab_historial:
