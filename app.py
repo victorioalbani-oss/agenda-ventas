@@ -37,27 +37,24 @@ from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
-# 1. CONFIGURACIÓN (Debe ser la línea 1)
+# 1. Configuración (DEBE ser la primera línea)
 st.set_page_config(page_title="Vico S.A.", layout="wide")
 
-# 2. CONEXIÓN SEGURA
+# 2. Conexión Directa y Segura
 try:
-    # Intentamos leer la llave desde cualquier ubicación posible
-    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-        creds_dict = st.secrets["connections"]["gsheets"]
-    elif "gsheets" in st.secrets:
-        creds_dict = st.secrets["gsheets"]
-    else:
-        st.error("❌ No se encontraron Secrets")
-        st.stop()
-
-    # Creamos la conexión para Drive y Sheets
+    # Esta línea busca la info exactamente donde la pusiste en el TOML
+    creds_dict = st.secrets["connections"]["gsheets"]
+    
+    # Creamos las credenciales para Google Drive (Subir fotos/archivos)
     credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
+    
+    # Creamos la conexión para Google Sheets (Leer tablas)
     conn = st.connection("gsheets", type=GSheetsConnection)
-
+    
 except Exception as e:
-    st.error(f"⚠️ Fallo de infraestructura: {e}")
+    st.error(f"⚠️ Error de Conexión: {e}")
+    st.info("Revisá que el mail de la cuenta de servicio tenga permiso de Editor en el Excel.")
     st.stop()
 
 # 3. Variables Globales
