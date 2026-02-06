@@ -42,7 +42,7 @@ try:
     # 6. MockConn (para que tu Bitácora no cambie)
     # 6. MockConn (Versión Inteligente para que no falle por nombres)
     class MockConn:
-        def read(self, worksheet):
+        def read(self, worksheet, **kwargs):
             # 1. Obtenemos todas las pestañas reales del Excel
             hojas_reales = [s.title for s in sheet.worksheets()]
             
