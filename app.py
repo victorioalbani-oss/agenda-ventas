@@ -592,40 +592,80 @@ elif opcion == "Órdenes de Compra":
                 
 # --- MÓDULO BITÁCORA (VERSIÓN ORIGINAL FUNCIONAL) ---
 elif opcion == "Bitácora":
-    st.header("📝 Bitácora de Actividad")
+    st.header("📝 Bitácora de Actividad y Recordatorios")
     
+    # Aseguramos que el diccionario de meses esté disponible para los recordatorios
+    dic_meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
+                 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
-    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
+    tab_carga, tab_historial, tab_alertas = st.tabs(["➕ Nueva Gestión", "📋 Historial Completo", "📅 Próximos Avisos"])
     
-    with b1:
+    with tab_carga:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Primero cargá un contacto.")
+            st.warning("⚠️ Cargá un contacto primero para asociar la gestión.")
         else:
-            with st.form("form_bit_vico", clear_on_submit=True):
+            with st.form("form_gestion_vico", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
-                emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
-                fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-                cont = st.text_area("Detalle de la gestión")
+                emp_b = st.selectbox("Empresa", lista_empresas)
+                f_hoy = st.date_input("Fecha de hoy", datetime.now())
+                detalle = st.text_area("¿Qué se hizo?")
                 
-                if st.form_submit_button("🚀 Cargar Bitácora"):
+                st.write("---")
+                # SECCIÓN DE RECORDATORIO
+                col1, col2 = st.columns(2)
+                with col1:
+                    tiene_recordatorio = st.checkbox("📌 Programar Aviso Futuro")
+                with col2:
+                    fecha_futura = st.date_input("¿Cuándo avisar?", datetime.now() + timedelta(days=7))
+                
+                if st.form_submit_button("🚀 Guardar Gestión"):
+                    valor_recordatorio = str(fecha_futura) if tiene_recordatorio else "Sin aviso"
+                    
                     nuevo_registro = {
-                        "Fecha": str(fecha_realizada), 
-                        "Empresa": emp_b, 
-                        "Gestion": cont 
+                        "Fecha": str(f_hoy),
+                        "Empresa": emp_b,
+                        "Gestion": detalle,
+                        "Recordatorio": valor_recordatorio
                     }
+                    
                     st.session_state.db_bitacora.append(nuevo_registro)
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success(f"✅ Registro guardado!")
+                    st.success("✅ Gestión y aviso guardados correctamente.")
                     st.rerun()
 
-    with b2:
-        st.subheader("🔎 Historial")
+    with tab_alertas:
+        st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
-            df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
-            st.dataframe(df_bit, use_container_width=True, hide_index=True)
+            df_b = pd.DataFrame(st.session_state.db_bitacora)
+            
+            # Filtramos solo los que tienen fecha de recordatorio válida
+            if "Recordatorio" in df_b.columns:
+                df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
+                
+                if not df_alertas.empty:
+                    df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
+                    df_alertas = df_alertas.dropna(subset=["F_REC"]).sort_values("F_REC")
+
+                    for _, fila in df_alertas.iterrows():
+                        f = fila["F_REC"]
+                        vencido = f.date() <= datetime.now().date()
+                        color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
+                        
+                        nombre_mes = dic_meses.get(f.month, "")
+                        fecha_texto = f"{f.day} de {nombre_mes}"
+                        
+                        with st.expander(f"{color} | {fecha_texto} - {fila['Empresa']}"):
+                            st.write(f"**Tarea previa:** {fila['Gestion']}")
+                            if st.button(f"Marcar completado para {fila['Empresa']}", key=f"btn_{f}_{fila['Empresa']}"):
+                                # Aquí podrías agregar lógica para borrar el recordatorio
+                                st.info("Función para archivar en desarrollo.")
+                else:
+                    st.info("No tenés recordatorios programados por ahora.")
+        else:
+            st.info("La bitácora está vacía.")
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
