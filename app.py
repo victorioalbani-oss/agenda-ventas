@@ -40,13 +40,43 @@ try:
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
     # 6. MockConn (para que tu Bitácora no cambie)
+    # 6. MockConn (Versión Inteligente para que no falle por nombres)
     class MockConn:
         def read(self, worksheet):
-            wks = sheet.worksheet(worksheet)
-            return pd.DataFrame(wks.get_all_records())
+            try:
+                # Intentamos abrir la hoja como viene
+                wks = sheet.worksheet(worksheet)
+            except:
+                # Si falla (por un espacio o mayúscula), buscamos la que más se parezca
+                todas_las_hojas = sheet.worksheets()
+                # Buscamos una coincidencia ignorando mayúsculas y espacios
+                for s in todas_las_hojas:
+                    if s.title.strip().lower() == worksheet.strip().lower():
+                        wks = s
+                        break
+                else:
+                    # Si aun así no la encuentra, tira un error claro
+                    nombres_reales = [s.title for s in todas_las_hojas]
+                    st.error(f"❌ No se encontró '{worksheet}'. En el Excel existen: {nombres_reales}")
+                    st.stop()
+            
+            # Traemos los datos y los convertimos en DataFrame
+            data = wks.get_all_records()
+            return pd.DataFrame(data)
+
         def update(self, worksheet, data):
-            wks = sheet.worksheet(worksheet)
+            # Buscamos la hoja para actualizar
+            try:
+                wks = sheet.worksheet(worksheet)
+            except:
+                todas_las_hojas = sheet.worksheets()
+                for s in todas_las_hojas:
+                    if s.title.strip().lower() == worksheet.strip().lower():
+                        wks = s
+                        break
+            
             wks.clear()
+            # Enviamos encabezados + datos
             wks.update([data.columns.values.tolist()] + data.values.tolist())
 
     conn = MockConn()
