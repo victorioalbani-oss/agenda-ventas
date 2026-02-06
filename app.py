@@ -581,12 +581,16 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA: VERSIÓN 100% BLINDADA ---
+# --- MÓDULO BITÁCORA (VERSIÓN REDISEÑADA Y SIN ERRORES) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
+    # Diccionario de meses global para evitar KeyError
     meses_dic = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
                  7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+
+    if "db_bitacora" not in st.session_state:
+        st.session_state.db_bitacora = []
 
     b1, b2, b3 = st.tabs(["➕ Agregar Registro", "📋 Historial", "📅 Recordatorios"])
     
@@ -594,73 +598,75 @@ elif opcion == "Bitácora":
         if not st.session_state.db_contactos:
             st.warning("⚠️ Primero cargá un contacto.")
         else:
-            # --- FORMULARIO PRINCIPAL ---
-            with st.form("bit_vico_main", clear_on_submit=True):
+            with st.form("form_bit_vico", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
                 cont = st.text_area("Detalle de la gestión")
                 
                 st.write("---")
-                # Checkbox para habilitar recordatorio
-                activar_rec = st.checkbox("📌 ¿Programar un recordatorio para el futuro?")
-                fecha_rec_input = st.date_input("Fecha sugerida", datetime.now() + timedelta(days=7))
+                st.subheader("⏰ Recordatorio Opcional")
+                activar_rec = st.checkbox("¿Programar aviso futuro?")
                 
-                btn_bit = st.form_submit_button("🚀 Cargar Bitácora")
+                # La fecha solo se procesa si el checkbox está marcado
+                # Para que se "abra" visualmente fuera del form es difícil, 
+                # pero acá lo hacemos funcional:
+                fecha_rec_val = st.date_input("Fecha del Recordatorio (Si aplica)", datetime.now() + timedelta(days=7))
+                
+                submit_bit = st.form_submit_button("🚀 Cargar Bitácora")
 
-            if btn_bit:
+            if submit_bit:
                 if emp_b and cont:
-                    # Si el checkbox no está marcado, guardamos "None" para que no rompa
-                    valor_rec = str(fecha_rec_input) if activar_rec else "None"
+                    # Si no activó el checkbox, guardamos vacío para evitar el TypeError después
+                    valor_recordatorio = str(fecha_rec_val) if activar_rec else ""
                     
-                    nuevo = {
+                    nuevo_registro = {
                         "Fecha": str(fecha_realizada), 
                         "Empresa": emp_b, 
                         "Gestion": cont,
-                        "Recordatorio": valor_rec
+                        "Recordatorio": valor_recordatorio
                     }
-                    st.session_state.db_bitacora.append(nuevo)
+                    st.session_state.db_bitacora.append(nuevo_registro)
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success("✅ Guardado con éxito.")
+                    st.success(f"✅ Registro guardado!")
                     st.rerun()
 
     with b2:
-        st.subheader("📋 Todas las gestiones")
+        st.subheader("🔎 Historial")
         if st.session_state.db_bitacora:
-            st.dataframe(pd.DataFrame(st.session_state.db_bitacora), use_container_width=True)
+            df_hist = pd.DataFrame(st.session_state.db_bitacora)
+            st.dataframe(df_hist, use_container_width=True, hide_index=True)
         else:
-            st.info("Vacío.")
+            st.info("Bitácora vacía.")
 
     with b3:
-        st.subheader("📅 Recordatorios Pendientes")
+        st.subheader("📅 Próximos Recordatorios")
         if st.session_state.db_bitacora:
-            df_r = pd.DataFrame(st.session_state.db_bitacora)
+            df_raw = pd.DataFrame(st.session_state.db_bitacora)
             
-            # FILTRO DE SEGURIDAD TOTAL
-            # Solo tomamos filas donde Recordatorio sea una fecha (no "None", no vacío, no nulo)
-            if "Recordatorio" in df_r.columns:
-                df_r = df_r[df_r["Recordatorio"].astype(str).str.contains("-")].copy()
+            if "Recordatorio" in df_raw.columns:
+                # FILTRO CRÍTICO: Solo filas que tengan una fecha (no vacías)
+                df_rec = df_raw[df_raw["Recordatorio"].str.strip() != ""].copy()
                 
-                if not df_r.empty:
-                    # Convertimos con errores='coerce' para que lo que no sea fecha sea NaT
-                    df_r["F_REC"] = pd.to_datetime(df_r["Recordatorio"], errors='coerce')
-                    # Borramos los NaT para evitar el TypeError de comparación
-                    df_r = df_r.dropna(subset=["F_REC"])
-                    df_r = df_r.sort_values("F_REC")
+                if not df_rec.empty:
+                    # Convertimos a fecha y eliminamos posibles errores de conversión
+                    df_rec["Fecha_Obj"] = pd.to_datetime(df_rec["Recordatorio"], errors='coerce')
+                    df_rec = df_rec.dropna(subset=["Fecha_Obj"]) # Chau errores de comparación
+                    df_rec = df_rec.sort_values("Fecha_Obj")
 
-                    for _, row in df_r.iterrows():
-                        f = row["F_REC"]
-                        txt_f = f"{f.day} de {meses_dic.get(f.month, '')} de {f.year}"
+                    for i, row in df_rec.iterrows():
+                        f = row["Fecha_Obj"]
+                        f_texto = f"{f.day} de {meses_dic.get(f.month, 'S/M')} de {f.year}"
                         
-                        # Comparación segura: fecha contra fecha
+                        # Comparación segura entre fechas
                         hoy = datetime.now().date()
-                        es_hoy = f.date() <= hoy
+                        vencido = f.date() <= hoy
                         
-                        with st.expander(f"{'🔴' if es_hoy else '📅'} {txt_f} | {row['Empresa']}"):
+                        with st.expander(f"{'🔴' if vencido else '📅'} {f_texto} | {row['Empresa']}"):
                             st.write(f"**Gestión:** {row['Gestion']}")
-                            if es_hoy: st.warning("⚠️ Pendiente para hoy o pasado.")
+                            if vencido: st.warning("⚠️ Atención requerida hoy.")
                 else:
-                    st.info("No hay recordatorios.")
+                    st.info("No hay recordatorios pendientes.")
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
