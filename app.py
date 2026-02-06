@@ -43,22 +43,21 @@ try:
     # 6. MockConn (Versión Inteligente para que no falle por nombres)
     class MockConn:
         def read(self, worksheet):
-            try:
-                # Intentamos abrir la hoja como viene
-                wks = sheet.worksheet(worksheet)
-            except:
-                # Si falla (por un espacio o mayúscula), buscamos la que más se parezca
-                todas_las_hojas = sheet.worksheets()
-                # Buscamos una coincidencia ignorando mayúsculas y espacios
-                for s in todas_las_hojas:
-                    if s.title.strip().lower() == worksheet.strip().lower():
-                        wks = s
-                        break
-                else:
-                    # Si aun así no la encuentra, tira un error claro
-                    nombres_reales = [s.title for s in todas_las_hojas]
-                    st.error(f"❌ No se encontró '{worksheet}'. En el Excel existen: {nombres_reales}")
-                    st.stop()
+            # 1. Obtenemos todas las pestañas reales del Excel
+            hojas_reales = [s.title for s in sheet.worksheets()]
+            
+            # 2. Buscamos la que querés (credenciales) ignorando mayúsculas/espacios
+            target = next((s for s in hojas_reales if s.strip().lower() == worksheet.strip().lower()), None)
+            
+            if target:
+                wks = sheet.worksheet(target)
+                data = wks.get_all_records()
+                return pd.DataFrame(data)
+            else:
+                # Si no la encuentra, te escupe la lista de nombres reales
+                st.error(f"❌ Error Crítico: No encontré '{worksheet}'.")
+                st.info(f"Las pestañas que hay en tu Excel son: {hojas_reales}")
+                st.stop()
             
             # Traemos los datos y los convertimos en DataFrame
             data = wks.get_all_records()
