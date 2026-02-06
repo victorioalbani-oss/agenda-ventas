@@ -581,22 +581,25 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA ACTUALIZADO ---
+# --- MÓDULO BITÁCORA (VERSIÓN FINAL BLINDADA) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
+    # 1. DEFINICIÓN DE MESES (Necesario para evitar el KeyError)
+    dic_meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
+                 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
-    # Agregamos la tercera pestaña para Recordatorios
     b1, b2, b3 = st.tabs(["➕ Agregar Registro", "📋 Historial", "📅 Recordatorios"])
     
     with b1:
         if not st.session_state.db_contactos:
             st.warning("⚠️ Primero cargá un contacto.")
         else:
-            # Iniciamos el formulario
-            with st.form("form_bit_vico", clear_on_submit=True):
+            # TODO el formulario dentro del 'with' para que no falte el botón
+            with st.form("form_bit_integral", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
@@ -604,27 +607,26 @@ elif opcion == "Bitácora":
                 
                 st.write("---")
                 st.subheader("⏰ Recordatorio Opcional")
-                activar_rec = st.checkbox("¿Programar aviso futuro?")
-                # Aquí usamos timedelta, que ahora sí funcionará con el import de arriba
+                activar_rec = st.checkbox("¿Programar un recordatorio futuro?")
+                # Aquí ya no dará NameError porque timedelta viene del import general
                 fecha_rec = st.date_input("Fecha del Recordatorio", datetime.now() + timedelta(days=7))
                 
-                # EL BOTÓN DEBE ESTAR ADENTRO DEL 'with st.form'
                 btn_cargar = st.form_submit_button("🚀 Cargar Bitácora")
 
-            # La lógica del botón va afuera o justo al final del bloque indentado
             if btn_cargar:
-                nuevo_registro = {
-                    "Fecha": str(fecha_realizada), 
-                    "Empresa": emp_b, 
-                    "Gestion": cont,
-                    "Recordatorio": str(fecha_rec) if activar_rec else ""
-                }
-                
-                st.session_state.db_bitacora.append(nuevo_registro)
-                sincronizar("bitacora", st.session_state.db_bitacora)
-                st.success(f"✅ ¡Bitácora guardada para {emp_b}!")
-                st.balloons()
-                st.rerun()
+                if emp_b and cont:
+                    nuevo_registro = {
+                        "Fecha": str(fecha_realizada), 
+                        "Empresa": emp_b, 
+                        "Gestion": cont,
+                        "Recordatorio": str(fecha_rec) if activar_rec else ""
+                    }
+                    st.session_state.db_bitacora.append(nuevo_registro)
+                    sincronizar("bitacora", st.session_state.db_bitacora)
+                    st.success(f"✅ ¡Bitácora guardada para {emp_b}!")
+                    st.rerun()
+                else:
+                    st.error("Por favor, completa el detalle de la gestión.")
 
     with b2:
         st.subheader("🔎 Historial de Gestiones")
@@ -632,56 +634,45 @@ elif opcion == "Bitácora":
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
             df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
             
-            # Filtros
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso, key="filtro_bit_emp")
-            with col_f2:
-                rango = st.date_input("Rango de fechas", value=[], key="filtro_bit_fecha")
-
+            empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
+            f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso, key="fb_emp")
+            
             df_filtrado = df_bit.copy()
-            if f_emp != "Todas": df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            if len(rango) == 2:
-                df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
-
-            st.dataframe(df_filtrado, use_container_width=True)
+            if f_emp != "Todas": 
+                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
+            
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
         else:
             st.info("La bitácora está vacía.")
 
     with b3:
         st.subheader("📅 Próximos Recordatorios")
         if st.session_state.db_bitacora:
-            df_rec = pd.DataFrame(st.session_state.db_bitacora)
+            df_raw = pd.DataFrame(st.session_state.db_bitacora)
             
-            # Filtramos solo los que tienen fecha de recordatorio
-            if "Recordatorio" in df_rec.columns:
-                df_rec = df_rec[df_rec["Recordatorio"] != ""].copy()
+            # Filtramos los que tienen recordatorio cargado
+            if "Recordatorio" in df_raw.columns:
+                df_rec = df_raw[df_raw["Recordatorio"] != ""].copy()
                 
                 if not df_rec.empty:
-                    # Convertimos a fecha real para ordenar
                     df_rec["Fecha_Obj"] = pd.to_datetime(df_rec["Recordatorio"])
                     df_rec = df_rec.sort_values("Fecha_Obj")
 
-                    # --- FUNCIÓN PARA FORMATO DÍA MES AÑO (Texto) ---
-                    # Usamos un formato que Streamlit entienda bien
-                    meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
-                             7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
-                    
-                    for _, row in df_rec.iterrows():
+                    for i, row in df_rec.iterrows():
                         f = row["Fecha_Obj"]
-                        fecha_texto = f"{f.day} de {meses[f.month]} de {f.year}"
+                        # Aquí usamos dic_meses definido arriba para evitar el KeyError
+                        fecha_texto = f"{f.day} de {dic_meses[f.month]} de {f.year}"
                         
-                        # Mostramos una alerta si la fecha es hoy o ya pasó
-                        es_urgente = f.date() <= datetime.now().date()
+                        es_hoy = f.date() <= datetime.now().date()
+                        icon = "🔴" if es_hoy else "📅"
                         
-                        with st.expander(f"{'🔴' if es_urgente else '📅'} {fecha_texto} | {row['Empresa']}"):
-                            st.write(f"**Referencia de la gestión:** {row['Gestion']}")
-                            if es_urgente: st.warning("Este recordatorio ya está en fecha o vencido.")
+                        with st.expander(f"{icon} {fecha_texto} | {row['Empresa']}"):
+                            st.write(f"**Gestión original:** {row['Gestion']}")
+                            if es_hoy: st.warning("⚠️ Este recordatorio requiere atención hoy.")
                 else:
-                    st.info("No hay recordatorios pendientes.")
+                    st.info("No hay recordatorios programados.")
             else:
-                st.info("Aún no se han creado registros con recordatorios.")
+                st.info("No hay columna de recordatorios en la base de datos.")
 
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
