@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
-from datetime import datetime
+from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
-
+import json
 # --- INICIO DE BLOQUEO CRAGAS CON DRIVES Y MENÚ LATERAL --- LINEA 18
 # --- MÓDULO PRODUCTOS --- LINEA 132
 # --- MÓDULO CONTACTOS --- LINEA 219
@@ -19,7 +19,7 @@ from google.oauth2 import service_account
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # 2. Conexión a Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
+#conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CONEXIÓN A DRIVE REPARADA ---
 #creds_dict = st.secrets["connections"]["gsheets"]
@@ -29,11 +29,26 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 #ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 # --- CONEXIÓN A DRIVE REPARADA ---
 # Verificá que en tus Secrets de Streamlit la ruta sea esta
-creds_dict = st.secrets["connections"]["gsheets"]
-credentials = service_account.Credentials.from_service_account_info(creds_dict)
 
-service_drive = build('drive', 'v3', credentials=credentials)
+try:
+    # Intentamos obtener las credenciales de la forma estándar de Streamlit
+    creds_dict = st.secrets["connections"]["gsheets"]
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    
+    # Construcción de servicios
+    service_drive = build('drive', 'v3', credentials=credentials)
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+except Exception as e:
+    st.error(f"⚠️ Error de Conexión: {e}")
+    st.info("Revisá que en Streamlit Cloud tus Secrets tengan la estructura [connections.gsheets]")
+    st.stop()
+
+# 3. VARIABLES GLOBALES
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
+
+
+
 # --------------------------------
 
 # --- INICIO DEL BLOQUE DE LOGIN  ---
