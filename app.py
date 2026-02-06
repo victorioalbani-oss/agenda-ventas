@@ -10,16 +10,16 @@ import gspread
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
+# --- 2. CONEXIÓN MANUAL Y ROBUSTA ---
 try:
-    # 1. Sacamos los datos de Secrets
     s = st.secrets["connections"]["gsheets"]
     
-    # 2. Construimos el diccionario de credenciales MANUALMENTE
+    # Construcción limpia de credenciales
     creds_info = {
         "type": s["type"],
         "project_id": s["project_id"],
         "private_key_id": s["private_key_id"],
-        "private_key": s["private_key"].replace("\\n", "\n").strip(), # <--- ACÁ: Sin el # y con la coma al final
+        "private_key": s["private_key"].replace("\\n", "\n").strip(),
         "client_email": s["client_email"],
         "client_id": s["client_id"],
         "auth_uri": s["auth_uri"],
@@ -28,54 +28,29 @@ try:
         "client_x509_cert_url": s["client_x509_cert_url"]
     }
 
-    # 3. Autorización con Scopes
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credentials = service_account.Credentials.from_service_account_info(creds_info, scopes=scopes)
     
-    # 4. Clientes de Google
+    # Clientes de Google
     service_drive = build('drive', 'v3', credentials=credentials)
     client_sheets = gspread.authorize(credentials)
-    
-    # 5. Abrir el Excel
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
-    # 6. MockConn (para que tu Bitácora no cambie)
-    # 6. MockConn (Versión Inteligente para que no falle por nombres)
     class MockConn:
         def read(self, worksheet, **kwargs):
-            # 1. Obtenemos todas las pestañas reales del Excel
-            hojas_reales = [s.title for s in sheet.worksheets()]
-            
-            # 2. Buscamos la que querés (credenciales) ignorando mayúsculas/espacios
-            target = next((s for s in hojas_reales if s.strip().lower() == worksheet.strip().lower()), None)
+            hojas_reales = [h.title for h in sheet.worksheets()]
+            target = next((h for h in hojas_reales if h.strip().lower() == worksheet.strip().lower()), None)
             
             if target:
                 wks = sheet.worksheet(target)
-                data = wks.get_all_records()
-                return pd.DataFrame(data)
+                return pd.DataFrame(wks.get_all_records())
             else:
-                # Si no la encuentra, te escupe la lista de nombres reales
-                st.error(f"❌ Error Crítico: No encontré '{worksheet}'.")
-                st.info(f"Las pestañas que hay en tu Excel son: {hojas_reales}")
+                st.error(f"❌ No existe la pestaña '{worksheet}'. Hojas: {hojas_reales}")
                 st.stop()
-            
-            # Traemos los datos y los convertimos en DataFrame
-            data = wks.get_all_records()
-            return pd.DataFrame(data)
 
         def update(self, worksheet, data):
-            # Buscamos la hoja para actualizar
-            try:
-                wks = sheet.worksheet(worksheet)
-            except:
-                todas_las_hojas = sheet.worksheets()
-                for s in todas_las_hojas:
-                    if s.title.strip().lower() == worksheet.strip().lower():
-                        wks = s
-                        break
-            
+            wks = sheet.worksheet(worksheet)
             wks.clear()
-            # Enviamos encabezados + datos
             wks.update([data.columns.values.tolist()] + data.values.tolist())
 
     conn = MockConn()
@@ -83,6 +58,7 @@ try:
 except Exception as e:
     st.error(f"Error de conexión: {e}")
     st.stop()
+
 # 3. ID de Carpeta y el resto de tu lógica
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
@@ -91,42 +67,28 @@ ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 # --------------------------------
 
  # --- INICIO DEL BLOQUE DE LOGIN  ---
-
 def login_nube():
-
     if "autenticado" not in st.session_state:
-
         st.session_state.autenticado = False
 
-
     if not st.session_state.autenticado:
-
         st.markdown("<h1 style='text-align: center;'>🔐 Acceso a la AGENDA ALBANI</h1>", unsafe_allow_html=True)
-
         col1, col2, col3 = st.columns([1, 2, 1])
-
         with col2:
-
             with st.form("login_form"):
-
                 user_input = st.text_input("Usuario")
-
                 pass_input = st.text_input("Contraseña", type="password")
-
                 submit = st.form_submit_button("Entrar", use_container_width=True)
-
-               
-
-               if submit:
+                
+                if submit:
                     try:
-                        # 1. Leemos la pestaña (usando el conn que ya definiste)
+                        # Leemos la pestaña
                         df_creds = conn.read(worksheet="credenciales")
                         
-                        # Limpiamos nombres de columnas por si acaso (evita errores de espacios)
+                        # Normalizamos columnas a minúsculas
                         df_creds.columns = [c.strip().lower() for c in df_creds.columns]
 
-                        # 2. Verificación Blindada
-                        # Comparamos todo como texto (.astype(str)) y quitamos espacios (.strip())
+                        # Verificación exacta
                         valido = df_creds[
                             (df_creds['usuario'].astype(str).strip() == str(user_input).strip()) & 
                             (df_creds['clave'].astype(str).strip() == str(pass_input).strip())
@@ -136,17 +98,14 @@ def login_nube():
                             st.session_state.autenticado = True
                             st.rerun()
                         else:
-                            st.error("❌ Usuario o contraseña incorrectos")
-                            
+                            st.error("Usuario o contraseña incorrectos")
                     except Exception as e:
-                        # CAMBIO CLAVE: Acá verás el error real si algo falla
-                        st.error(f"⚠️ Error de datos: {e}")
-                        st.info("Asegurate que en el Excel las columnas sean 'usuario' y 'clave'")
+                        st.error(f"Error al verificar credenciales: {e}")
         return False
     return True
-    
+
 if not login_nube():
-    st.stop() 
+    st.stop()
 
 # --- FIN DEL BLOQUE DE LOGIN ---
 
