@@ -590,7 +590,7 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- Modulo Bitacora ----
+# --- Modulo Bitacora (Versión Corregida y Estable) ----
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad y Recordatorios")
     
@@ -636,7 +636,6 @@ elif opcion == "Bitácora":
         st.subheader("📋 Historial de Gestiones")
         if st.session_state.db_bitacora:
             df_historial = pd.DataFrame(st.session_state.db_bitacora)
-            # Filtro por empresa
             empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
             filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
             
@@ -651,32 +650,34 @@ elif opcion == "Bitácora":
     with tab_alertas:
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
+            # Convertimos a DF para filtrar pero operamos sobre la lista original para no romper nada
             df_b = pd.DataFrame(st.session_state.db_bitacora)
+            
             if "Recordatorio" in df_b.columns:
-                # Buscamos los que tienen fecha (contienen guion)
+                # Filtrar solo los que tienen una fecha (contienen '-') y NO son 'Realizado'
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
                 
                 if not df_alertas.empty:
                     df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
                     df_alertas = df_alertas.sort_values("F_REC")
 
-                    for idx, fila in df_alertas.iterrows():
+                    for idx_filtrado, fila in df_alertas.iterrows():
                         f = fila["F_REC"]
                         vencido = f.date() <= datetime.now().date()
                         color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
                         
-                        # --- MEJORA: Todo a la vista ---
                         with st.container(border=True):
                             c1, c2 = st.columns([0.8, 0.2])
                             with c1:
                                 st.markdown(f"**{color} | {f.day} de {dic_meses.get(f.month)} - {fila['Empresa']}**")
-                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}") # Esto es lo que querías ver directo
+                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}")
                             with c2:
-                                # --- MEJORA: Quitar solo el aviso ---
-                                if st.button("Quitar 🔔", key=f"q_{idx}"):
-                                    st.session_state.db_bitacora[idx]["Recordatorio"] = "Sin aviso"
+                                # Aquí usamos el ID original de la lista para que no falle al guardar
+                                if st.button("Quitar 🔔", key=f"q_{idx_filtrado}"):
+                                    # Modificamos el registro original en el session_state
+                                    st.session_state.db_bitacora[idx_filtrado]["Recordatorio"] = "Realizado"
                                     sincronizar("bitacora", st.session_state.db_bitacora)
-                                    st.success("Aviso quitado")
+                                    st.success("Aviso marcado como Realizado")
                                     st.rerun()
                 else:
                     st.info("No hay avisos pendientes.")
