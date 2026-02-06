@@ -22,6 +22,13 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CONEXIÓN A DRIVE REPARADA ---
+#creds_dict = st.secrets["connections"]["gsheets"]
+#credentials = service_account.Credentials.from_service_account_info(creds_dict)
+
+#service_drive = build('drive', 'v3', credentials=credentials)
+#ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
+# --- CONEXIÓN A DRIVE REPARADA ---
+# Verificá que en tus Secrets de Streamlit la ruta sea esta
 creds_dict = st.secrets["connections"]["gsheets"]
 credentials = service_account.Credentials.from_service_account_info(creds_dict)
 
