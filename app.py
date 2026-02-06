@@ -1,70 +1,56 @@
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 import json
 import gspread
-# --- INICIO DE BLOQUEO CRAGAS CON DRIVES Y MENÚ LATERAL --- LINEA 18
-# --- MÓDULO PRODUCTOS --- LINEA 132
-# --- MÓDULO CONTACTOS --- LINEA 219
-# --- MÓDULO ÓRDENES DE COMPRA --- LINEA 414
-# --- MÓDULO BITÁCORA --- LINEA 528
-# --- MÓDULO COBROS --- LINEA 635
-# --- MÓDULO HISTORIAL INTEGRAL --- LINEA 791
-# --- MÓDULO DISEÑO --- LINEA 916
 
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
-# 2. Conexión a Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-# --- CONEXIÓN A DRIVE REPARADA ---
-# 2. Conexión Directa
-# --- BLOQUE DE CONEXIÓN FINAL ---
-# --- CONEXIÓN ESTABLE ---
-# --- CONEXIÓN BLINDADA ---
+# --- 2. CONEXIÓN MANUAL (BORRAMOS EL ST.CONNECTION ANTERIOR) ---
 try:
     # 1. Cargamos los secretos
     creds_dict = dict(st.secrets["connections"]["gsheets"])
     
-    # 2. Limpieza forzada de la llave (esto mata el error de bytes)
+    # 2. Limpieza de la llave
     if "private_key" in creds_dict:
-        # Quitamos cualquier carácter oculto que esté molestando
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
 
-    # 3. Autorización manual con Google
+    # 3. Autorización con Scopes
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
     
-    # 4. Cliente de Drive y Sheets
+    # 4. Clientes de Google
     service_drive = build('drive', 'v3', credentials=credentials)
     client_sheets = gspread.authorize(credentials)
     
-    # 5. Abrir el Excel (usamos la URL que ya tenés)
+    # 5. Abrir el Excel
     sheet = client_sheets.open_by_url(creds_dict["spreadsheet"])
     
-    # --- ACÁ ESTÁ EL TRUCO PARA QUE TU CÓDIGO SIGA IGUAL ---
-    # Creamos un objeto que imite al 'conn' de Streamlit
+    # 6. Clase MockConn para que el resto de tu código NO cambie
     class MockConn:
         def read(self, worksheet):
             wks = sheet.worksheet(worksheet)
-            return pd.DataFrame(wks.get_all_records())
+            data = wks.get_all_records()
+            return pd.DataFrame(data)
+        
         def update(self, worksheet, data):
             wks = sheet.worksheet(worksheet)
             wks.clear()
+            # Formateamos para gspread: encabezados + datos
             wks.update([data.columns.values.tolist()] + data.values.tolist())
 
+    # Definimos el conn que usará toda tu app
     conn = MockConn()
     
 except Exception as e:
     st.error(f"Error en conexión manual: {e}")
     st.stop()
-  
 
+# 3. ID de Carpeta y el resto de tu lógica
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 
