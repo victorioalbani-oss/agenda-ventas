@@ -1,11 +1,11 @@
-import streamlit as st
-import pandas as pd
-from streamlit_gsheets import GSheetsConnection
-from datetime import datetime, timedelta
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2 import service_account
-import json
+#import streamlit as st
+#import pandas as pd
+#from streamlit_gsheets import GSheetsConnection
+#from datetime import datetime, timedelta
+#from googleapiclient.discovery import build
+#from googleapiclient.http import MediaIoBaseUpload
+#from google.oauth2 import service_account
+#import json
 # --- INICIO DE BLOQUEO CRAGAS CON DRIVES Y MENÚ LATERAL --- LINEA 18
 # --- MÓDULO PRODUCTOS --- LINEA 132
 # --- MÓDULO CONTACTOS --- LINEA 219
@@ -16,7 +16,7 @@ import json
 # --- MÓDULO DISEÑO --- LINEA 916
 
 # 1. Configuración de página
-st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
+#st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # 2. Conexión a Google Sheets
 #conn = st.connection("gsheets", type=GSheetsConnection)
@@ -31,25 +31,41 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 # Verificá que en tus Secrets de Streamlit la ruta sea esta
 
 # 2. CONEXIÓN A GOOGLE SHEETS Y DRIVE
+import streamlit as st
+import pandas as pd
+from streamlit_gsheets import GSheetsConnection
+from datetime import datetime, timedelta
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.oauth2 import service_account
+import json
+
+# 1. CONFIGURACIÓN DE PÁGINA (SIEMPRE DEBE SER LA PRIMERA LÍNEA)
+st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
+
+# 2. CONEXIÓN BLINDADA A GOOGLE
 try:
-    # Intentamos obtener las credenciales de la estructura estándar de Secrets
+    # Buscamos las credenciales en la estructura estándar de Streamlit
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-        creds_dict = st.secrets["connections"]["gsheets"]
+        creds_info = st.secrets["connections"]["gsheets"]
     elif "gsheets" in st.secrets:
-        creds_dict = st.secrets["gsheets"]
+        creds_info = st.secrets["gsheets"]
     else:
-        st.error("❌ No se encontraron los Secretos en Streamlit Cloud.")
+        st.error("❌ No se encontraron los Secretos (Secrets) en Streamlit Cloud.")
         st.stop()
 
-    # Validamos que el diccionario tenga lo necesario antes de intentar la conexión
-    if "client_email" in creds_dict:
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    # Validamos que los campos esenciales existan para evitar el MalformedError
+    if "private_key" in creds_info and "client_email" in creds_info:
+        # Cargamos las credenciales para Drive y Sheets
+        credentials = service_account.Credentials.from_service_account_info(creds_info)
         service_drive = build('drive', 'v3', credentials=credentials)
+        
+        # Conexión oficial de Streamlit para leer las pestañas
         conn = st.connection("gsheets", type=GSheetsConnection)
     else:
-        st.error("❌ El formato de los Secretos es incorrecto (faltan campos de Google).")
+        st.error("❌ El formato de los Secretos es incorrecto (faltan campos clave).")
         st.stop()
-        
+
 except Exception as e:
     st.error(f"⚠️ Error Crítico de Conexión: {e}")
     st.stop()
