@@ -44,7 +44,8 @@ try:
     service_drive = build('drive', 'v3', credentials=credentials)
 except Exception as e:
     st.error(f"Error de configuración: {e}")
-
+    st.stop()
+  
 service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
