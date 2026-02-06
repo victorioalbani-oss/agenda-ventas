@@ -614,6 +614,7 @@ elif opcion == "Bitácora":
                 detalle = st.text_area("¿Qué se hizo?")
                 
                 st.write("---")
+                # SECCIÓN DE RECORDATORIO (Como estaba originalmente)
                 col1, col2 = st.columns(2)
                 with col1:
                     tiene_rec = st.checkbox("📌 Programar Aviso Futuro")
@@ -622,7 +623,12 @@ elif opcion == "Bitácora":
                 
                 if st.form_submit_button("🚀 Guardar Gestión"):
                     valor_rec = str(fecha_futura) if tiene_rec else "Sin aviso"
-                    nuevo = {"Fecha": str(f_hoy), "Empresa": emp_b, "Gestion": detalle, "Recordatorio": valor_rec}
+                    nuevo = {
+                        "Fecha": str(f_hoy), 
+                        "Empresa": emp_b, 
+                        "Gestion": detalle, 
+                        "Recordatorio": valor_rec
+                    }
                     st.session_state.db_bitacora.append(nuevo)
                     sincronizar("bitacora", st.session_state.db_bitacora)
                     st.success("✅ Guardado correctamente.")
@@ -631,13 +637,9 @@ elif opcion == "Bitácora":
     with tab_historial:
         st.subheader("📋 Historial de Gestiones")
         if st.session_state.db_bitacora:
-            # Convertimos la lista de la sesión en un DataFrame para mostrarlo
             df_historial = pd.DataFrame(st.session_state.db_bitacora)
-            
-            # Formateamos la columna Fecha para que se vea bien
             df_historial["Fecha"] = pd.to_datetime(df_historial["Fecha"]).dt.date
             
-            # Filtro rápido por empresa para que no sea un lío
             empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
             filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
             
@@ -645,18 +647,15 @@ elif opcion == "Bitácora":
             if filtro_emp != "Todas":
                 df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
             
-            # Mostramos la tabla principal
             st.dataframe(
                 df_mostrar.sort_values("Fecha", ascending=False), 
                 use_container_width=True, 
                 hide_index=True
             )
             
-            # --- OPCIÓN PARA BORRAR (Por si te equivocaste en algo) ---
             st.write("---")
             st.subheader("🗑️ Eliminar Registro")
             with st.expander("Abrir panel de eliminación"):
-                # Creamos una lista de opciones clara para el selectbox
                 opciones_borrar = {
                     f"{f['Fecha']} | {f['Empresa']} | {str(f['Gestion'])[:30]}...": i 
                     for i, f in df_mostrar.iterrows()
@@ -677,8 +676,6 @@ elif opcion == "Bitácora":
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
             df_b = pd.DataFrame(st.session_state.db_bitacora)
-            
-            # Filtramos solo los que tienen fecha de recordatorio válida
             if "Recordatorio" in df_b.columns:
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
                 
@@ -690,15 +687,11 @@ elif opcion == "Bitácora":
                         f = fila["F_REC"]
                         vencido = f.date() <= datetime.now().date()
                         color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
-                        
                         nombre_mes = dic_meses.get(f.month, "")
                         fecha_texto = f"{f.day} de {nombre_mes}"
                         
                         with st.expander(f"{color} | {fecha_texto} - {fila['Empresa']}"):
                             st.write(f"**Tarea previa:** {fila['Gestion']}")
-                            if st.button(f"Marcar completado para {fila['Empresa']}", key=f"btn_{f}_{fila['Empresa']}"):
-                                # Aquí podrías agregar lógica para borrar el recordatorio
-                                st.info("Función para archivar en desarrollo.")
                 else:
                     st.info("No tenés recordatorios programados por ahora.")
         else:
