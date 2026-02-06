@@ -10,14 +10,21 @@ import gspread
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
-# --- 2. CONEXIÓN MANUAL (BORRAMOS EL ST.CONNECTION ANTERIOR) ---
+# --- CONEXIÓN MANUAL REPARADA ---
 try:
     # 1. Cargamos los secretos
     creds_dict = dict(st.secrets["connections"]["gsheets"])
     
-    # 2. Limpieza de la llave
-    if "private_key" in creds_dict:
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
+    # 2. LIMPIEZA PROFUNDA: Esto elimina el error InvalidByte(1623, 61)
+    raw_key = creds_dict["private_key"]
+    
+    # Quitamos comillas si se guardaron por error en el string
+    raw_key = raw_key.strip("'").strip('"')
+    
+    # Convertimos los \n de texto en saltos de línea reales
+    raw_key = raw_key.replace("\\n", "\n")
+    
+    creds_dict["private_key"] = raw_key
 
     # 3. Autorización con Scopes
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -30,24 +37,22 @@ try:
     # 5. Abrir el Excel
     sheet = client_sheets.open_by_url(creds_dict["spreadsheet"])
     
-    # 6. Clase MockConn para que el resto de tu código NO cambie
     class MockConn:
         def read(self, worksheet):
             wks = sheet.worksheet(worksheet)
-            data = wks.get_all_records()
-            return pd.DataFrame(data)
+            return pd.DataFrame(wks.get_all_records())
         
         def update(self, worksheet, data):
             wks = sheet.worksheet(worksheet)
             wks.clear()
-            # Formateamos para gspread: encabezados + datos
             wks.update([data.columns.values.tolist()] + data.values.tolist())
 
-    # Definimos el conn que usará toda tu app
     conn = MockConn()
     
 except Exception as e:
     st.error(f"Error en conexión manual: {e}")
+    # Si sigue fallando, este print nos dirá qué está viendo la app realmente
+    # st.write(f"DEBUG - Primera parte de la llave: {creds_dict['private_key'][:50]}")
     st.stop()
 
 # 3. ID de Carpeta y el resto de tu lógica
