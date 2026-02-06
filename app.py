@@ -605,47 +605,27 @@ elif opcion == "Bitácora":
     
     with tab_carga:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Cargá un contacto primero para asociar la gestión.")
+            st.warning("⚠️ Primero cargá un contacto.")
         else:
-            # INTERFAZ DINÁMICA FUERA DEL FORM
-            st.subheader("Cargar Nueva Gestión")
-            
-            # El checkbox fuera del form permite que la interfaz cambie al instante
-            tiene_recordatorio = st.checkbox("📌 Programar Aviso Futuro")
-            
-            # Contenedor para la fecha (solo aparece si el checkbox está marcado)
-            fecha_futura = None
-            if tiene_recordatorio:
-                fecha_futura = st.date_input("📅 ¿Cuándo avisar?", datetime.now() + timedelta(days=7))
-                st.info(f"Se agendará un aviso para el {fecha_futura.strftime('%d/%m/%Y')}")
-
-            # INICIO DEL FORMULARIO PARA LOS DATOS PESADOS
-            with st.form("form_gestion_vico_fijo", clear_on_submit=True):
+            with st.form("form_gestion_vico_estable", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Empresa", lista_empresas)
                 f_hoy = st.date_input("Fecha de hoy", datetime.now())
                 detalle = st.text_area("¿Qué se hizo?")
                 
-                # BOTÓN DE GUARDADO
-                btn_guardar = st.form_submit_button("🚀 Guardar Gestión")
-
-            if btn_guardar:
-                if not detalle:
-                    st.error("Por favor, describí qué se hizo en la gestión.")
-                else:
-                    # Lógica de guardado usando la variable externa tiene_recordatorio
-                    valor_recordatorio = str(fecha_futura) if tiene_recordatorio else "Sin aviso"
-                    
-                    nuevo_registro = {
-                        "Fecha": str(f_hoy),
-                        "Empresa": emp_b,
-                        "Gestion": detalle,
-                        "Recordatorio": valor_recordatorio
-                    }
-                    
-                    st.session_state.db_bitacora.append(nuevo_registro)
+                st.write("---")
+                col1, col2 = st.columns(2)
+                with col1:
+                    tiene_rec = st.checkbox("📌 Programar Aviso Futuro")
+                with col2:
+                    fecha_futura = st.date_input("¿Cuándo avisar?", datetime.now() + timedelta(days=7))
+                
+                if st.form_submit_button("🚀 Guardar Gestión"):
+                    valor_rec = str(fecha_futura) if tiene_rec else "Sin aviso"
+                    nuevo = {"Fecha": str(f_hoy), "Empresa": emp_b, "Gestion": detalle, "Recordatorio": valor_rec}
+                    st.session_state.db_bitacora.append(nuevo)
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success("✅ Gestión guardada con éxito.")
+                    st.success("✅ Guardado correctamente.")
                     st.rerun()
 
     with tab_historial:
