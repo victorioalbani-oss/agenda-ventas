@@ -594,7 +594,6 @@ elif opcion == "Órdenes de Compra":
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad y Recordatorios")
     
-    # Aseguramos que el diccionario de meses esté disponible para los recordatorios
     dic_meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
                  7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
 
@@ -614,7 +613,6 @@ elif opcion == "Bitácora":
                 detalle = st.text_area("¿Qué se hizo?")
                 
                 st.write("---")
-                # SECCIÓN DE RECORDATORIO (Como estaba originalmente)
                 col1, col2 = st.columns(2)
                 with col1:
                     tiene_rec = st.checkbox("📌 Programar Aviso Futuro")
@@ -623,29 +621,26 @@ elif opcion == "Bitácora":
                 
                 if st.form_submit_button("🚀 Guardar Gestión"):
                     valor_rec = str(fecha_futura) if tiene_rec else "Sin aviso"
-                    nuevo = {
-                        "Fecha": str(f_hoy), 
-                        "Empresa": emp_b, 
-                        "Gestion": detalle, 
-                        "Recordatorio": valor_rec
-                    }
+                    nuevo = {"Fecha": str(f_hoy), "Empresa": emp_b, "Gestion": detalle, "Recordatorio": valor_rec}
                     st.session_state.db_bitacora.append(nuevo)
                     sincronizar("bitacora", st.session_state.db_bitacora)
                     st.success("✅ Guardado correctamente.")
                     st.rerun()
 
-     
-            
+    with tab_historial:
+        st.subheader("📋 Historial de Gestiones")
+        if st.session_state.db_bitacora:
+            df_historial = pd.DataFrame(st.session_state.db_bitacora)
+            st.dataframe(df_historial, use_container_width=True, hide_index=True)
+        else:
+            st.info("Todavía no hay nada cargado.")
+
     with tab_alertas:
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
-            # Creamos el DataFrame para operar, pero necesitamos los índices originales
             df_b = pd.DataFrame(st.session_state.db_bitacora)
-            
             if "Recordatorio" in df_b.columns:
-                # Filtramos registros que tienen fecha (formato con guion)
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
-                
                 if not df_alertas.empty:
                     df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
                     df_alertas = df_alertas.sort_values("F_REC")
@@ -653,32 +648,20 @@ elif opcion == "Bitácora":
                     for idx, fila in df_alertas.iterrows():
                         f = fila["F_REC"]
                         vencido = f.date() <= datetime.now().date()
-                        color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
                         nombre_mes = dic_meses.get(f.month, "")
-                        fecha_texto = f"{f.day} de {nombre_mes}"
                         
-                        # Mostramos la información directo en un contenedor con borde
                         with st.container(border=True):
-                            col_info, col_accion = st.columns([0.8, 0.2])
-                            
-                            with col_info:
-                                st.markdown(f"**{color} | {fecha_texto} - {fila['Empresa']}**")
-                                # PEDIDO: Tarea previa a la vista directamente
-                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}")
-                            
-                            with col_accion:
-                                # PEDIDO: Quitar recordatorio (limpia la celda, no borra la fila)
+                            c1, c2 = st.columns([0.8, 0.2])
+                            with c1:
+                                st.markdown(f"**{'🔴 VENCIDO' if vencido else '⏳ Pendiente'} | {f.day} de {nombre_mes} - {fila['Empresa']}**")
+                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}") # VISTA DIRECTA
+                            with c2:
                                 if st.button("Quitar 🔔", key=f"del_aviso_{idx}"):
-                                    # Modificamos solo el campo Recordatorio en la lista original usando el índice
                                     st.session_state.db_bitacora[idx]["Recordatorio"] = "Sin aviso"
-                                    # Sincronizamos con el Excel
                                     sincronizar("bitacora", st.session_state.db_bitacora)
-                                    st.success("Aviso quitado")
                                     st.rerun()
                 else:
-                    st.info("No tenés recordatorios programados por ahora.")
-        else:
-            st.info("La bitácora está vacía.")
+                    st.info("No tenés recordatorios programados.")
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
