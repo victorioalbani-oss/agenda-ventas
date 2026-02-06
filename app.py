@@ -33,37 +33,31 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
-from datetime import datetime, timedelta  # Importante para evitar el NameError
+from datetime import datetime, timedelta
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
-import json
 
-# 1. Configuración de página (SIEMPRE debe ser la primera línea)
-st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
+# 1. CONFIGURACIÓN (Debe ser la línea 1)
+st.set_page_config(page_title="Vico S.A.", layout="wide")
 
-# 2. Conexión a Google Sheets y Drive
+# 2. CONEXIÓN SEGURA
 try:
-    # Detector de secretos: busca en las ubicaciones estándar de Streamlit
+    # Intentamos leer la llave desde cualquier ubicación posible
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-        creds_info = st.secrets["connections"]["gsheets"]
+        creds_dict = st.secrets["connections"]["gsheets"]
     elif "gsheets" in st.secrets:
-        creds_info = st.secrets["gsheets"]
+        creds_dict = st.secrets["gsheets"]
     else:
-        st.error("❌ No se encontraron los Secretos en Streamlit Cloud.")
+        st.error("❌ No se encontraron Secrets")
         st.stop()
 
-    # Validamos campos esenciales para evitar el MalformedError
-    if "client_email" in creds_info:
-        credentials = service_account.Credentials.from_service_account_info(creds_info)
-        service_drive = build('drive', 'v3', credentials=credentials)
-        conn = st.connection("gsheets", type=GSheetsConnection)
-    else:
-        st.error("❌ El formato de los Secretos es incorrecto (faltan campos de Google).")
-        st.stop()
-        
+    # Creamos la conexión para Drive y Sheets
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    service_drive = build('drive', 'v3', credentials=credentials)
+    conn = st.connection("gsheets", type=GSheetsConnection)
+
 except Exception as e:
-    st.error(f"⚠️ Error Crítico de Conexión: {e}")
+    st.error(f"⚠️ Fallo de infraestructura: {e}")
     st.stop()
 
 # 3. Variables Globales
