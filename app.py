@@ -661,7 +661,7 @@ elif opcion == "Bitácora":
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
-    tab_carga, tab_historial, tab_alertas = st.tabs(["➕ Nueva Gestión", "📋 Historial Completo", "📅 Próximos Avisos"])
+    tab_carga, tab_historial, tab_alertas = st.tabs(["➕ Nuevo Registro", "📋 Historial", "📅 Recordatorios"])
     
     with tab_carga:
         if not st.session_state.db_contactos:
