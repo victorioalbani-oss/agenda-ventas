@@ -10,49 +10,51 @@ import gspread
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
-# --- CONEXIÓN MANUAL REPARADA ---
+# --- CONEXIÓN SEGURA Y ROBUSTA ---
 try:
-    # 1. Cargamos los secretos
-    creds_dict = dict(st.secrets["connections"]["gsheets"])
+    # 1. Sacamos los datos de Secrets
+    s = st.secrets["connections"]["gsheets"]
     
-    # 2. LIMPIEZA PROFUNDA: Esto elimina el error InvalidByte(1623, 61)
-    raw_key = creds_dict["private_key"]
-    
-    # Quitamos comillas si se guardaron por error en el string
-    raw_key = raw_key.strip("'").strip('"')
-    
-    # Convertimos los \n de texto en saltos de línea reales
-    raw_key = raw_key.replace("\\n", "\n")
-    
-    creds_dict["private_key"] = raw_key
+    # 2. Construimos el diccionario de credenciales MANUALMENTE
+    # Esto asegura que no se filtren caracteres extraños
+    creds_info = {
+        "type": s["type"],
+        "project_id": s["project_id"],
+        "private_key_id": s["private_key_id"],
+        "private_key": s["private_key"].replace("\\n", "\n").strip(), # Limpieza clave
+        "client_email": s["client_email"],
+        "client_id": s["client_id"],
+        "auth_uri": s["auth_uri"],
+        "token_uri": s["token_uri"],
+        "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": s["client_x509_cert_url"]
+    }
 
     # 3. Autorización con Scopes
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    credentials = service_account.Credentials.from_service_account_info(creds_info, scopes=scopes)
     
     # 4. Clientes de Google
     service_drive = build('drive', 'v3', credentials=credentials)
     client_sheets = gspread.authorize(credentials)
     
     # 5. Abrir el Excel
-    sheet = client_sheets.open_by_url(creds_dict["spreadsheet"])
+    sheet = client_sheets.open_by_url(s["spreadsheet"])
     
+    # 6. MockConn (para que tu Bitácora no cambie)
     class MockConn:
         def read(self, worksheet):
             wks = sheet.worksheet(worksheet)
             return pd.DataFrame(wks.get_all_records())
-        
         def update(self, worksheet, data):
             wks = sheet.worksheet(worksheet)
             wks.clear()
             wks.update([data.columns.values.tolist()] + data.values.tolist())
 
     conn = MockConn()
-    
+
 except Exception as e:
-    st.error(f"Error en conexión manual: {e}")
-    # Si sigue fallando, este print nos dirá qué está viendo la app realmente
-    # st.write(f"DEBUG - Primera parte de la llave: {creds_dict['private_key'][:50]}")
+    st.error(f"Error de conexión: {e}")
     st.stop()
 
 # 3. ID de Carpeta y el resto de tu lógica
