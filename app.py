@@ -580,71 +580,110 @@ elif opcion == "Órdenes de Compra":
                             st.rerun()
             else:
                 st.info("No hay órdenes.")
+                
+# --- MÓDULO BITÁCORA (VERSIÓN ORIGINAL FUNCIONAL) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
+    # Asegurar que la base existe
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
-    b1, b2, b3 = st.tabs(["➕ Agregar Registro", "📋 Historial", "📅 Recordatorios"])
+    b1, b2 = st.tabs(["➕ Agregar Registro", "📋 Historial y Gestión"])
     
     with b1:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Primero cargá un contacto.")
+            st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
         else:
-            with st.form("form_bit_vico_final", clear_on_submit=True):
+            with st.form("form_bit", clear_on_submit=True):
+                # Usamos los nombres actuales de la DB de contactos para que siempre estén vinculados
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-                cont = st.text_area("Detalle de la gestión")
+                cont = st.text_area("Detalle de la gestión") # Esto se guardará en la columna 'Gestion'
                 
-                st.write("---")
-                activar_rec = st.checkbox("📌 ¿Programar un recordatorio para el futuro?")
-                # El selector de fecha siempre está en el form pero solo lo usamos si activar_rec es True
-                fecha_rec_input = st.date_input("Fecha del Recordatorio", datetime.now() + timedelta(days=7))
-                
-                # BOTÓN DENTRO DEL FORM
-                btn_bit = st.form_submit_button("🚀 Cargar Bitácora")
-
-            if btn_bit:
-                if emp_b and cont:
-                    # Guardamos "None" si no hay recordatorio para evitar errores de comparación después
-                    valor_rec = str(fecha_rec_input) if activar_rec else "None"
-                    
-                    nuevo = {
+                if st.form_submit_button("Cargar Bitácora"):
+                    # 1. Creamos el nuevo registro
+                    nuevo_registro = {
                         "Fecha": str(fecha_realizada), 
                         "Empresa": emp_b, 
-                        "Gestion": cont,
-                        "Recordatorio": valor_rec
+                        "Gestion": cont 
                     }
-                    st.session_state.db_bitacora.append(nuevo)
+                    
+                    # 2. Agregamos a la memoria de la App
+                    st.session_state.db_bitacora.append(nuevo_registro)
+                    
+                    # 3. Mandamos toda la lista a Google Sheets
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success("✅ Registro guardado con éxito.")
-                    st.rerun()
+                    
+                    st.success(f"✅ Registro guardado para {emp_b}")
+                    st.rerun() 
 
-    with b3:
-        st.subheader("📅 Recordatorios Pendientes")
+    with b2:
+        st.subheader("🔎 Historial de Gestiones")
         if st.session_state.db_bitacora:
-            df_r = pd.DataFrame(st.session_state.db_bitacora)
+            # 1. Convertimos a DataFrame para filtrar
+            df_bit = pd.DataFrame(st.session_state.db_bitacora)
             
-            if "Recordatorio" in df_r.columns:
-                # Filtro de seguridad: Solo lo que parece una fecha (contiene '-')
-                df_validos = df_r[df_r["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
-                
-                if not df_validos.empty:
-                    df_validos["F_OBJ"] = pd.to_datetime(df_validos["Recordatorio"], errors='coerce')
-                    df_validos = df_validos.dropna(subset=["F_OBJ"]).sort_values("F_OBJ")
+            # Limpieza de fechas para visualización
+            df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
+            
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
+                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso)
+            with col_f2:
+                rango = st.date_input("Rango de fechas", value=[])
 
-                    for _, row in df_validos.iterrows():
-                        f = row["F_OBJ"]
-                        txt_f = f"{f.day} de {MESES_DIC.get(f.month, '')} de {f.year}"
-                        es_hoy = f.date() <= datetime.now().date()
+            # 2. Lógica de filtrado
+            df_filtrado = df_bit.copy()
+            if f_emp != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
+            
+            if len(rango) == 2:
+                df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
+
+            # 3. Muestra de tabla
+            st.dataframe(df_filtrado, use_container_width=True)
+            
+            st.write("---")
+            
+            # --- LÓGICA DE ELIMINACIÓN SELECCIONADA ---
+            if not df_filtrado.empty:
+                st.subheader("🗑️ Eliminar Registro Específico")
+                
+                opciones_borrar = {}
+                for idx, fila in df_filtrado.iterrows():
+                    # Formato: [Fecha] Empresa - Inicio del texto
+                    label = f"[{fila['Fecha']}] {fila['Empresa']} - {str(fila['Gestion'])[:40]}..."
+                    opciones_borrar[label] = idx
+                
+                seleccion_borrar = st.selectbox("Seleccioná el registro exacto a eliminar:", 
+                                               options=[""] + list(opciones_borrar.keys()))
+                
+                if st.button("❌ Confirmar Eliminación", type="secondary"):
+                    if seleccion_borrar != "":
+                        indice_real = opciones_borrar[seleccion_borrar]
+                        # Eliminamos por el índice real
+                        st.session_state.db_bitacora.pop(indice_real)
                         
-                        with st.expander(f"{'🔴' if es_hoy else '📅'} {txt_f} | {row['Empresa']}"):
-                            st.write(f"**Gestión:** {row['Gestion']}")
-                            if es_hoy: st.warning("⚠️ Pendiente para hoy o pasado.")
-                else:
-                    st.info("No hay recordatorios pendientes.")
+                        # Sincronizamos
+                        sincronizar("bitacora", st.session_state.db_bitacora)
+                        st.success("✅ Registro eliminado correctamente.")
+                        st.rerun()
+                    else:
+                        st.warning("Por favor, seleccioná un registro de la lista.")
+
+                # Exportación CSV
+                csv = df_filtrado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label=f"📥 Descargar esta vista (.CSV)",
+                    data=csv,
+                    file_name=f"bitacora_filtrada.csv",
+                    mime="text/csv",
+                )
+        else:
+            st.info("La bitácora está vacía.")
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
