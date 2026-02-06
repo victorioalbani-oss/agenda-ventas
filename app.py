@@ -693,25 +693,46 @@ elif opcion == "Bitácora":
                     st.success("✅ Guardado correctamente.")
                     st.rerun()
 
+    
     with tab_historial:
         st.subheader("📋 Historial de Gestiones")
         if st.session_state.db_bitacora:
             # 1. Filtros de Visualización
             df_historial = pd.DataFrame(st.session_state.db_bitacora)
+            
+            # Aseguramos que la fecha sea para ordenar
+            df_historial['Fecha_DT'] = pd.to_datetime(df_historial['Fecha'], errors='coerce')
+            df_historial = df_historial.sort_values(by='Fecha_DT', ascending=False)
+            
             empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
             filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
             
             df_mostrar = df_historial.copy()
             if filtro_emp != "Todas":
                 df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
-            
-            st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
 
-            # --- 2. NUEVA SECCIÓN: ELIMINAR GESTIÓN ---
+            st.write("---")
+
+            # --- NUEVA FORMA DE VISUALIZACIÓN (Tarjetas Expandibles) ---
+            # En lugar de st.dataframe, usamos este bucle:
+            for i, fila in df_mostrar.iterrows():
+                # Formateamos la fecha para que se vea bien
+                fecha_str = fila['Fecha']
+                empresa_str = fila['Empresa']
+                gestion_corta = fila['Gestion'][:60] + "..." if len(fila['Gestion']) > 60 else fila['Gestion']
+                
+                # Creamos una tarjeta expandible para cada gestión
+                with st.expander(f"📅 {fecha_str} | 🏢 {empresa_str} | 📝 {gestion_corta}"):
+                    st.markdown(f"**Empresa:** {empresa_str}")
+                    st.markdown(f"**Fecha:** {fecha_str}")
+                    st.markdown("**Detalle de la Gestión:**")
+                    st.info(fila['Gestion']) # st.info hace que el texto largo destaque y sea legible
+                    if fila['Recordatorio'] != "Sin aviso" and fila['Recordatorio'] != "Realizado":
+                        st.write(f"🔔 **Próximo aviso:** {fila['Recordatorio']}")
+
+            # --- 2. SECCIÓN: ELIMINAR GESTIÓN (Se mantiene igual) ---
             st.write("---")
             with st.expander("🗑️ Eliminar una gestión del historial"):
-                # Creamos una lista de opciones legible para el usuario
-                # Usamos el índice original para borrar con precisión
                 opciones_borrar = [
                     f"{i} | {g['Fecha']} | {g['Empresa']} | {g['Gestion'][:30]}..." 
                     for i, g in enumerate(st.session_state.db_bitacora)
@@ -719,26 +740,67 @@ elif opcion == "Bitácora":
                 
                 seleccion_borrar = st.selectbox(
                     "Seleccioná la gestión que querés borrar definitivamente:", 
-                    ["Seleccionar..."] + opciones_borrar
+                    ["Seleccionar..."] + opciones_borrar,
+                    key="del_bitacora_key"
                 )
 
                 if st.button("❌ Confirmar Borrado Definitivo"):
                     if seleccion_borrar != "Seleccionar...":
-                        # Sacamos el índice (el número antes del primer '|')
                         idx_borrar = int(seleccion_borrar.split(" | ")[0])
-                        
-                        # Eliminamos de la lista en memoria
                         empresa_eliminada = st.session_state.db_bitacora[idx_borrar]['Empresa']
                         st.session_state.db_bitacora.pop(idx_borrar)
+                        sincronizar("bitacora", st.session_state.db_bitacora)
+                        st.warning(f"Gestión de {empresa_eliminada} eliminada.")
+                        st.rerun()
+        else:
+            st.info("Todavía no hay nada cargado.")
+    
+    #with tab_historial:
+    #    st.subheader("📋 Historial de Gestiones")
+    #    if st.session_state.db_bitacora:
+    #        # 1. Filtros de Visualización
+    #        df_historial = pd.DataFrame(st.session_state.db_bitacora)
+    #        empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
+    #        filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
+            
+    #        df_mostrar = df_historial.copy()
+    #        if filtro_emp != "Todas":
+    #            df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
+    #        
+    #        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+
+            # --- 2. NUEVA SECCIÓN: ELIMINAR GESTIÓN ---
+    #        st.write("---")
+    #        with st.expander("🗑️ Eliminar una gestión del historial"):
+    #            # Creamos una lista de opciones legible para el usuario
+    #            # Usamos el índice original para borrar con precisión
+    #            opciones_borrar = [
+    #                f"{i} | {g['Fecha']} | {g['Empresa']} | {g['Gestion'][:30]}..." 
+    #                for i, g in enumerate(st.session_state.db_bitacora)
+    #            ]
+                
+    #            seleccion_borrar = st.selectbox(
+    #                "Seleccioná la gestión que querés borrar definitivamente:", 
+    #                ["Seleccionar..."] + opciones_borrar
+    #            )
+
+     #           if st.button("❌ Confirmar Borrado Definitivo"):
+      #              if seleccion_borrar != "Seleccionar...":
+       #                 # Sacamos el índice (el número antes del primer '|')
+        #                idx_borrar = int(seleccion_borrar.split(" | ")[0])
+         #               
+                        # Eliminamos de la lista en memoria
+          #              empresa_eliminada = st.session_state.db_bitacora[idx_borrar]['Empresa']
+           #             st.session_state.db_bitacora.pop(idx_borrar)
                         
                         # Sincronizamos con la nube (Google Sheets)
-                        sincronizar("bitacora", st.session_state.db_bitacora)
+             #           sincronizar("bitacora", st.session_state.db_bitacora)
                         
-                        st.warning(f"Gestión de {empresa_eliminada} eliminada de la nube.")
-                        st.rerun()
-                    else:
-                        st.info("Por favor, seleccioná una gestión de la lista.")
-        else:
+            #            st.warning(f"Gestión de {empresa_eliminada} eliminada de la nube.")
+           #             st.rerun()
+          #          else:
+         #               st.info("Por favor, seleccioná una gestión de la lista.")
+        #else:
             st.info("Todavía no hay nada cargado.")
             
     with tab_alertas:
