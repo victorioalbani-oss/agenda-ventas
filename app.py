@@ -581,16 +581,13 @@ elif opcion == "Órdenes de Compra":
             else:
                 st.info("No hay órdenes.")
 
-# --- MÓDULO BITÁCORA (VERSIÓN CORREGIDA Y SEGURA) ---
+# --- MÓDULO BITÁCORA (VERSIÓN REDISEÑADA Y SIN ERRORES) ---
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
-    # Definimos el diccionario de meses aquí mismo para evitar el KeyError
-    meses_dic = {
-        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 
-        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 
-        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
-    }
+    # Diccionario de meses global para evitar KeyError
+    meses_dic = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 
+                 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
 
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
@@ -599,9 +596,8 @@ elif opcion == "Bitácora":
     
     with b1:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
+            st.warning("⚠️ Primero cargá un contacto.")
         else:
-            # Iniciamos el formulario
             with st.form("form_bit_vico", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
@@ -611,62 +607,66 @@ elif opcion == "Bitácora":
                 st.write("---")
                 st.subheader("⏰ Recordatorio Opcional")
                 activar_rec = st.checkbox("¿Programar aviso futuro?")
-                # Aquí usamos timedelta sin errores
-                fecha_rec = st.date_input("Fecha del Recordatorio", datetime.now() + timedelta(days=7))
                 
-                # BOTÓN DE ENVÍO SIEMPRE DENTRO DEL FORM
+                # La fecha solo se procesa si el checkbox está marcado
+                # Para que se "abra" visualmente fuera del form es difícil, 
+                # pero acá lo hacemos funcional:
+                fecha_rec_val = st.date_input("Fecha del Recordatorio (Si aplica)", datetime.now() + timedelta(days=7))
+                
                 submit_bit = st.form_submit_button("🚀 Cargar Bitácora")
 
             if submit_bit:
                 if emp_b and cont:
+                    # Si no activó el checkbox, guardamos vacío para evitar el TypeError después
+                    valor_recordatorio = str(fecha_rec_val) if activar_rec else ""
+                    
                     nuevo_registro = {
                         "Fecha": str(fecha_realizada), 
                         "Empresa": emp_b, 
                         "Gestion": cont,
-                        "Recordatorio": str(fecha_rec) if activar_rec else ""
+                        "Recordatorio": valor_recordatorio
                     }
                     st.session_state.db_bitacora.append(nuevo_registro)
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success(f"✅ ¡Bitácora guardada para {emp_b}!")
+                    st.success(f"✅ Registro guardado!")
                     st.rerun()
-                else:
-                    st.error("Por favor, completa el detalle de la gestión.")
 
     with b2:
-        st.subheader("🔎 Historial de Gestiones")
+        st.subheader("🔎 Historial")
         if st.session_state.db_bitacora:
-            df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
-            st.dataframe(df_bit, use_container_width=True, hide_index=True)
+            df_hist = pd.DataFrame(st.session_state.db_bitacora)
+            st.dataframe(df_hist, use_container_width=True, hide_index=True)
         else:
-            st.info("La bitácora está vacía.")
+            st.info("Bitácora vacía.")
 
     with b3:
         st.subheader("📅 Próximos Recordatorios")
         if st.session_state.db_bitacora:
             df_raw = pd.DataFrame(st.session_state.db_bitacora)
             
-            # Verificamos si existe la columna de Recordatorio
             if "Recordatorio" in df_raw.columns:
-                df_rec = df_raw[df_raw["Recordatorio"] != ""].copy()
+                # FILTRO CRÍTICO: Solo filas que tengan una fecha (no vacías)
+                df_rec = df_raw[df_raw["Recordatorio"].str.strip() != ""].copy()
                 
                 if not df_rec.empty:
-                    df_rec["Fecha_Obj"] = pd.to_datetime(df_rec["Recordatorio"])
+                    # Convertimos a fecha y eliminamos posibles errores de conversión
+                    df_rec["Fecha_Obj"] = pd.to_datetime(df_rec["Recordatorio"], errors='coerce')
+                    df_rec = df_rec.dropna(subset=["Fecha_Obj"]) # Chau errores de comparación
                     df_rec = df_rec.sort_values("Fecha_Obj")
 
                     for i, row in df_rec.iterrows():
                         f = row["Fecha_Obj"]
-                        # Usamos meses_dic definido al inicio del módulo
-                        # Esto soluciona el KeyError de raíz
                         f_texto = f"{f.day} de {meses_dic.get(f.month, 'S/M')} de {f.year}"
                         
-                        vencido = f.date() <= datetime.now().date()
+                        # Comparación segura entre fechas
+                        hoy = datetime.now().date()
+                        vencido = f.date() <= hoy
                         
                         with st.expander(f"{'🔴' if vencido else '📅'} {f_texto} | {row['Empresa']}"):
                             st.write(f"**Gestión:** {row['Gestion']}")
-                            if vencido: st.warning("⚠️ Pendiente para hoy o fecha pasada.")
+                            if vencido: st.warning("⚠️ Atención requerida hoy.")
                 else:
-                    st.info("No hay recordatorios programados.")
+                    st.info("No hay recordatorios pendientes.")
 
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
