@@ -34,26 +34,16 @@ conn = st.connection("gsheets", type=GSheetsConnection)
  #   st.error(f"⚠️ Error de Conexión: {e}")
 #    st.stop()
 
-# --- CONEXIÓN BLINDADA ---
+# Con esto la app NO se rompe más
 try:
-    # 1. Cargamos el diccionario de secretos
     creds_dict = dict(st.secrets["connections"]["gsheets"])
-    
-    # 2. LIMPIEZA CLAVE: Reemplazamos los saltos de línea para evitar error PEM
-    if "private_key" in creds_dict:
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
-
-    # 3. Credenciales para Drive
-    credentials = service_account.Credentials.from_service_account_info(creds_dict)
-    service_drive = build('drive', 'v3', credentials=credentials)
-    
-    # 4. Conexión a Sheets (IMPORTANTE: Quitamos type=GSheetsConnection de aquí)
     conn = st.connection("gsheets", **creds_dict)
     
+    # Drive
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    service_drive = build('drive', 'v3', credentials=credentials)
 except Exception as e:
-    st.error(f"Falla en la base: {e}")
-    st.stop()
-
+    st.error(f"Error de configuración: {e}")
 
 service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
