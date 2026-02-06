@@ -367,18 +367,18 @@ elif opcion == "Contactos":
                     st.success("✅ ¡Vico S.A. actualizado correctamente!")
                     st.rerun()
 
-    # --- FUNCION DE LISTAS CON BITÁCORA INTEGRADA ---
+    # --- FUNCION DE LISTAS CON FILTROS AVANZADOS Y BITÁCORA ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
-        # 1. BLOQUE DE AÑADIR
+        # 1. BLOQUE DE AÑADIR (Solo si hay contactos)
         if st.session_state.db_contactos:
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
             with st.container():
                 col_add, col_btn = st.columns([3, 1])
                 with col_add:
                     emp_a_agregar = st.selectbox(
-                        f"Seleccionar para {titulo}", 
+                        f"Seleccionar para añadir a {titulo}", 
                         [""] + nombres_totales, 
                         key=f"search_{lista_key}"
                     )
@@ -393,17 +393,41 @@ elif opcion == "Contactos":
 
         st.write("---")
 
-        # 2. RENDERIZADO DE LA LISTA
-        lista = st.session_state.get(lista_key, [])
-        if lista:
-            df_contactos = pd.DataFrame(st.session_state.db_contactos)
-            # Traemos la bitácora completa para filtrar
+        # 2. LÓGICA DE FILTRADO PARA LA LISTA
+        lista_nombres = st.session_state.get(lista_key, [])
+        if lista_nombres:
+            # Preparamos el DataFrame de los que están en la lista actual
+            df_contactos = pd.DataFrame(st.session_state.db_contactos).fillna("")
             df_bit_all = pd.DataFrame(st.session_state.db_bitacora)
             
-            detalles_lista = df_contactos[df_contactos['Empresa'].isin(lista)].copy()
-            detalles_lista = detalles_lista.sort_values(by=['País', 'Provincia', 'Ciudad'])
+            # Filtramos solo los nombres que pertenecen a esta lista (Activos, Visitar, etc.)
+            df_en_lista = df_contactos[df_contactos['Empresa'].isin(lista_nombres)].copy()
 
-            for i, row in detalles_lista.iterrows():
+            # --- BUSCADOR INTERNO DE LA LISTA ---
+            st.caption(f"🔍 Filtrar dentro de {titulo}:")
+            c_f1, c_f2, c_f3, c_f4 = st.columns(4)
+            with c_f1:
+                f_act = st.selectbox("🛠️ Actividad", ["Todas"] + sorted(df_en_lista["Actividad"].unique().tolist()), key=f"f_act_{lista_key}")
+            with c_f2:
+                f_pais = st.selectbox("🌎 País", ["Todos"] + sorted(df_en_lista["País"].unique().tolist()), key=f"f_pais_{lista_key}")
+            with c_f3:
+                f_prov = st.selectbox("📍 Prov.", ["Todas"] + sorted(df_en_lista["Provincia"].unique().tolist()), key=f"f_prov_{lista_key}")
+            with c_f4:
+                f_ciu = st.text_input("🏙️ Ciudad", key=f"f_ciu_{lista_key}", placeholder="Buscar...")
+
+            # Aplicamos los filtros
+            df_final = df_en_lista.copy()
+            if f_act != "Todas": df_final = df_final[df_final["Actividad"] == f_act]
+            if f_pais != "Todos": df_final = df_final[df_final["País"] == f_pais]
+            if f_prov != "Todas": df_final = df_final[df_final["Provincia"] == f_prov]
+            if f_ciu: df_final = df_final[df_final["Ciudad"].str.contains(f_ciu, case=False, na=False)]
+
+            st.write(f"📊 **{len(df_final)}** empresas encontradas")
+
+            # 3. RENDERIZADO DE LOS EXPANDERS FILTRADOS
+            df_final = df_final.sort_values(by=['País', 'Provincia', 'Ciudad'])
+
+            for i, row in df_final.iterrows():
                 emp_nombre = row['Empresa']
                 ubicacion = f"{row['País']} - {row['Provincia']} - {row['Ciudad']}"
                 llave_unica = f"item_{lista_key}_{emp_nombre}_{i}"
@@ -411,38 +435,24 @@ elif opcion == "Contactos":
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
-                    # --- NUEVA LÓGICA: MOSTRAR BITÁCORA ASOCIADA ---
+                    # --- BITÁCORA ASOCIADA ---
                     if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
-                        # Filtramos la bitácora para esta empresa específica
                         df_bit_emp = df_bit_all[df_bit_all['Empresa'] == emp_nombre].copy()
-                        
                         if not df_bit_emp.empty:
                             st.markdown("---")
-                            st.caption("📝 Últimas gestiones en Bitácora:")
-                            
-                            # Formateamos fecha si existe
+                            st.caption("📝 Últimas gestiones:")
                             if 'Fecha' in df_bit_emp.columns:
                                 df_bit_emp['Fecha'] = pd.to_datetime(df_bit_emp['Fecha'], errors='coerce').dt.strftime('%d/%m/%Y')
                             
-                            # Seleccionamos solo Fecha y Gestion (o Detalle)
                             col_g = "Gestion" if "Gestion" in df_bit_emp.columns else "Detalle"
                             df_view_bit = df_bit_emp[["Fecha", col_g]].sort_index(ascending=False)
                             
-                            # Mostramos una tabla compacta
-                            st.dataframe(
-                                df_view_bit, 
-                                use_container_width=True, 
-                                hide_index=True,
-                                column_config={
-                                    "Fecha": st.column_config.TextColumn("📅", width="small"),
-                                    col_g: st.column_config.TextColumn("Gestión")
-                                }
-                            )
+                            st.dataframe(df_view_bit, use_container_width=True, hide_index=True,
+                                column_config={"Fecha": st.column_config.TextColumn("📅", width="small"), col_g: st.column_config.TextColumn("Gestión")})
                         else:
-                            st.info("No hay gestiones registradas para esta empresa.")
+                            st.info("Sin bitácora.")
                     
-                    st.write("") # Espacio
-                    # BOTON DE QUITAR
+                    st.write("")
                     if st.button(f"Quitar de {titulo}", key=f"del_{llave_unica}"):
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
