@@ -24,10 +24,12 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- CONEXIÓN A DRIVE REPARADA ---
 # 2. Conexión Directa
 try:
-    creds_dict = st.secrets["connections"]["gsheets"]
-    credentials = service_account.Credentials.from_service_account_info(creds_dict)
-    service_drive = build('drive', 'v3', credentials=credentials)
-    conn = st.connection("gsheets", type=GSheetsConnection)
+#    creds_dict = st.secrets["connections"]["gsheets"]
+#    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+#    service_drive = build('drive', 'v3', credentials=credentials)
+#    conn = st.connection("gsheets", type=GSheetsConnection)
+    creds_dict = dict(st.secrets["connections"]["gsheets"])
+    conn = st.connection("gsheets", type=GSheetsConnection, **creds_dict)
 except Exception as e:
     st.error(f"⚠️ Error de Conexión: {e}")
     st.stop()
