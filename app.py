@@ -11,41 +11,32 @@ import gspread
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # --- 2. CONEXIÓN MANUAL Y ROBUSTA ---
+# --- CONEXIÓN ---
 try:
+    # 1. Cargamos datos de los secretos
     s = st.secrets["connections"]["gsheets"]
     
-    # Construcción limpia de credenciales
-    creds_info = {
-        "type": s["type"],
-        "project_id": s["project_id"],
-        "private_key_id": s["private_key_id"],
-        "private_key": s["private_key"].replace("\\n", "\n").strip(),
-        "client_email": s["client_email"],
-        "client_id": s["client_id"],
-        "auth_uri": s["auth_uri"],
-        "token_uri": s["token_uri"],
-        "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": s["client_x509_cert_url"]
-    }
-
-    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    credentials = service_account.Credentials.from_service_account_info(creds_info, scopes=scopes)
+    # 2. Preparamos credenciales (Limpiando la llave de saltos de línea raros)
+    creds_dict = dict(s)
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
     
-    # Clientes de Google
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    
+    # 3. Clientes de Google
     service_drive = build('drive', 'v3', credentials=credentials)
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
     class MockConn:
         def read(self, worksheet, **kwargs):
-            hojas_reales = [h.title for h in sheet.worksheets()]
-            target = next((h for h in hojas_reales if h.strip().lower() == worksheet.strip().lower()), None)
-            
-            if target:
-                wks = sheet.worksheet(target)
-                return pd.DataFrame(wks.get_all_records())
+            # Busca la pestaña sin importar si hay espacios o mayúsculas
+            hojas = {h.title.strip().lower(): h for h in sheet.worksheets()}
+            target = worksheet.strip().lower()
+            if target in hojas:
+                return pd.DataFrame(hojas[target].get_all_records())
             else:
-                st.error(f"❌ No existe la pestaña '{worksheet}'. Hojas: {hojas_reales}")
+                st.error(f"No existe la pestaña '{worksheet}'. Tienes: {list(hojas.keys())}")
                 st.stop()
 
         def update(self, worksheet, data):
@@ -59,7 +50,42 @@ except Exception as e:
     st.error(f"Error de conexión: {e}")
     st.stop()
 
-# 3. ID de Carpeta y el resto de tu lógica
+# --- BLOQUE DE LOGIN ---
+def login_nube():
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+
+    if not st.session_state.autenticado:
+        st.markdown("<h1 style='text-align: center;'>🔐 Acceso a la AGENDA ALBANI</h1>", unsafe_allow_html=True)
+        with st.form("login_form"):
+            user_input = st.text_input("Usuario")
+            pass_input = st.text_input("Contraseña", type="password")
+            
+            if st.form_submit_button("Entrar", use_container_width=True):
+                try:
+                    df_creds = conn.read(worksheet="credenciales")
+                    # Normalizamos columnas del Excel a minúsculas
+                    df_creds.columns = [c.strip().lower() for c in df_creds.columns]
+                    
+                    # Verificación (comparamos todo como texto para evitar errores con números)
+                    valido = df_creds[
+                        (df_creds['usuario'].astype(str) == str(user_input)) & 
+                        (df_creds['clave'].astype(str) == str(pass_input))
+                    ]
+                    
+                    if not valido.empty:
+                        st.session_state.autenticado = True
+                        st.rerun()
+                    else:
+                        st.error("Usuario o contraseña incorrectos")
+                except Exception as e:
+                    st.error(f"Error procesando datos: {e}")
+        return False
+    return True
+
+if not login_nube():
+    st.stop()
+
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 
