@@ -107,7 +107,7 @@ def login_nube():
                 if submit:
                     try:
                         # Buscamos en la pestaña 'credenciales' del Sheets
-                        df_creds = conn.read(worksheet="credenciales", ttl=0)
+                        df_creds = conn.read(worksheet="credenciales")
                         valido = df_creds[(df_creds['usuario'] == user_input) & 
                                           (df_creds['clave'].astype(str) == str(pass_input))]
                         
