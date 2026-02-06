@@ -1,11 +1,11 @@
-#import streamlit as st
-#import pandas as pd
-#from streamlit_gsheets import GSheetsConnection
-#from datetime import datetime, timedelta
-#from googleapiclient.discovery import build
-#from googleapiclient.http import MediaIoBaseUpload
-#from google.oauth2 import service_account
-#import json
+import streamlit as st
+import pandas as pd
+from streamlit_gsheets import GSheetsConnection
+from datetime import datetime, timedelta
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from google.oauth2 import service_account
+import json
 # --- INICIO DE BLOQUEO CRAGAS CON DRIVES Y MENÚ LATERAL --- LINEA 18
 # --- MÓDULO PRODUCTOS --- LINEA 132
 # --- MÓDULO CONTACTOS --- LINEA 219
@@ -16,52 +16,27 @@
 # --- MÓDULO DISEÑO --- LINEA 916
 
 # 1. Configuración de página
-#st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
+st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # 2. Conexión a Google Sheets
-#conn = st.connection("gsheets", type=GSheetsConnection)
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CONEXIÓN A DRIVE REPARADA ---
-#creds_dict = st.secrets["connections"]["gsheets"]
-#credentials = service_account.Credentials.from_service_account_info(creds_dict)
-
-#service_drive = build('drive', 'v3', credentials=credentials)
-#ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
-# --- CONEXIÓN A DRIVE REPARADA ---
-# Verificá que en tus Secrets de Streamlit la ruta sea esta
-
-import streamlit as st
-import pandas as pd
-from streamlit_gsheets import GSheetsConnection
-from datetime import datetime, timedelta
-from googleapiclient.discovery import build
-from google.oauth2 import service_account
-
-# 1. Configuración (DEBE ser la primera línea)
-st.set_page_config(page_title="Vico S.A.", layout="wide")
-
-# 2. Conexión Directa y Segura
+# 2. Conexión Directa
 try:
-    # Esta línea busca la info exactamente donde la pusiste en el TOML
     creds_dict = st.secrets["connections"]["gsheets"]
-    
-    # Creamos las credenciales para Google Drive (Subir fotos/archivos)
     credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
-    
-    # Creamos la conexión para Google Sheets (Leer tablas)
     conn = st.connection("gsheets", type=GSheetsConnection)
-    
 except Exception as e:
     st.error(f"⚠️ Error de Conexión: {e}")
-    st.info("Revisá que el mail de la cuenta de servicio tenga permiso de Editor en el Excel.")
     st.stop()
 
-# 3. Variables Globales
+#service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 
-
+    
 # --------------------------------
 
 # --- INICIO DEL BLOQUE DE LOGIN  ---
