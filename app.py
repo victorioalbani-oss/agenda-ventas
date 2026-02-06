@@ -18,6 +18,13 @@ import json
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
+# --- ARREGLO DE LLAVE ---
+# Esto limpia la llave de los Secrets para que Google la entienda sí o sí
+if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+    # Forzamos que los saltos de línea sean reales
+    raw_key = st.secrets.connections.gsheets.private_key
+    st.secrets.connections.gsheets.private_key = raw_key.replace("\\n", "\n")
+    
 # 2. Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
