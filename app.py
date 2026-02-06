@@ -45,9 +45,6 @@ def cargar_datos_seguro(nombre_pestaña):
 # 3. Variables Globales
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
-# 3. Variables Globales
-ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
-
 
 
 # --------------------------------
