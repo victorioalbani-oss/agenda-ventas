@@ -617,7 +617,6 @@ elif opcion == "Órdenes de Compra":
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad")
     
-    # Asegurar que la base existe
     if "db_bitacora" not in st.session_state:
         st.session_state.db_bitacora = []
 
@@ -625,97 +624,31 @@ elif opcion == "Bitácora":
     
     with b1:
         if not st.session_state.db_contactos:
-            st.warning("⚠️ Primero cargá un contacto en el módulo 'Contactos'.")
+            st.warning("⚠️ Primero cargá un contacto.")
         else:
-            with st.form("form_bit", clear_on_submit=True):
-                # Usamos los nombres actuales de la DB de contactos para que siempre estén vinculados
+            with st.form("form_bit_vico", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
-                cont = st.text_area("Detalle de la gestión") # Esto se guardará en la columna 'Gestion'
+                cont = st.text_area("Detalle de la gestión")
                 
-                if st.form_submit_button("Cargar Bitácora"):
-                    # 1. Creamos el nuevo registro
+                if st.form_submit_button("🚀 Cargar Bitácora"):
                     nuevo_registro = {
                         "Fecha": str(fecha_realizada), 
                         "Empresa": emp_b, 
                         "Gestion": cont 
                     }
-                    
-                    # 2. Agregamos a la memoria de la App
                     st.session_state.db_bitacora.append(nuevo_registro)
-                    
-                    # 3. Mandamos toda la lista a Google Sheets
                     sincronizar("bitacora", st.session_state.db_bitacora)
-                    
-                    st.success(f"✅ Registro guardado para {emp_b}")
-                    st.rerun() 
+                    st.success(f"✅ Registro guardado!")
+                    st.rerun()
 
     with b2:
-        st.subheader("🔎 Historial de Gestiones")
+        st.subheader("🔎 Historial")
         if st.session_state.db_bitacora:
-            # 1. Convertimos a DataFrame para filtrar
             df_bit = pd.DataFrame(st.session_state.db_bitacora)
-            
-            # Limpieza de fechas para visualización
             df_bit["Fecha"] = pd.to_datetime(df_bit["Fecha"]).dt.date
-            
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                empresas_en_uso = ["Todas"] + sorted(list(df_bit["Empresa"].unique()))
-                f_emp = st.selectbox("Filtrar por Empresa", empresas_en_uso)
-            with col_f2:
-                rango = st.date_input("Rango de fechas", value=[])
-
-            # 2. Lógica de filtrado
-            df_filtrado = df_bit.copy()
-            if f_emp != "Todas":
-                df_filtrado = df_filtrado[df_filtrado["Empresa"] == f_emp]
-            
-            if len(rango) == 2:
-                df_filtrado = df_filtrado[(df_filtrado["Fecha"] >= rango[0]) & (df_filtrado["Fecha"] <= rango[1])]
-
-            # 3. Muestra de tabla
-            st.dataframe(df_filtrado, use_container_width=True)
-            
-            st.write("---")
-            
-            # --- LÓGICA DE ELIMINACIÓN SELECCIONADA ---
-            if not df_filtrado.empty:
-                st.subheader("🗑️ Eliminar Registro Específico")
-                
-                opciones_borrar = {}
-                for idx, fila in df_filtrado.iterrows():
-                    # Formato: [Fecha] Empresa - Inicio del texto
-                    label = f"[{fila['Fecha']}] {fila['Empresa']} - {str(fila['Gestion'])[:40]}..."
-                    opciones_borrar[label] = idx
-                
-                seleccion_borrar = st.selectbox("Seleccioná el registro exacto a eliminar:", 
-                                               options=[""] + list(opciones_borrar.keys()))
-                
-                if st.button("❌ Confirmar Eliminación", type="secondary"):
-                    if seleccion_borrar != "":
-                        indice_real = opciones_borrar[seleccion_borrar]
-                        # Eliminamos por el índice real
-                        st.session_state.db_bitacora.pop(indice_real)
-                        
-                        # Sincronizamos
-                        sincronizar("bitacora", st.session_state.db_bitacora)
-                        st.success("✅ Registro eliminado correctamente.")
-                        st.rerun()
-                    else:
-                        st.warning("Por favor, seleccioná un registro de la lista.")
-
-                # Exportación CSV
-                csv = df_filtrado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label=f"📥 Descargar esta vista (.CSV)",
-                    data=csv,
-                    file_name=f"bitacora_filtrada.csv",
-                    mime="text/csv",
-                )
-        else:
-            st.info("La bitácora está vacía.")
+            st.dataframe(df_bit, use_container_width=True, hide_index=True)
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
