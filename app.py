@@ -91,6 +91,7 @@ ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 # --------------------------------
 
 # --- INICIO DEL BLOQUE DE LOGIN  ---
+# --- BLOQUE DE LOGIN DIAGNÓSTICO ---
 def login_nube():
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
@@ -103,26 +104,40 @@ def login_nube():
                 user_input = st.text_input("Usuario")
                 pass_input = st.text_input("Contraseña", type="password")
                 submit = st.form_submit_button("Entrar", use_container_width=True)
-               
+                
                 if submit:
                     try:
-                        # Buscamos en la pestaña 'credenciales' del Sheets
+                        # 1. Leemos la pestaña
                         df_creds = conn.read(worksheet="credenciales")
-                        valido = df_creds[(df_creds['usuario'] == user_input) & 
-                                          (df_creds['clave'].astype(str) == str(pass_input))]
+                        
+                        # DEBUG: Esto solo lo verás si hay un error en las columnas
+                        # st.write("Columnas detectadas:", df_creds.columns.tolist())
+                        
+                        # 2. Forzamos todo a minúsculas y texto para que no haya fallas de tipeo
+                        df_creds.columns = [c.strip().lower() for c in df_creds.columns]
+                        
+                        # 3. Buscamos al usuario
+                        # Usamos .astype(str) en ambos lados para no errar con números
+                        valido = df_creds[
+                            (df_creds['usuario'].astype(str).strip() == str(user_input).strip()) & 
+                            (df_creds['clave'].astype(str).strip() == str(pass_input).strip())
+                        ]
                         
                         if not valido.empty:
                             st.session_state.autenticado = True
                             st.rerun()
                         else:
                             st.error("Usuario o contraseña incorrectos")
+                            
                     except Exception as e:
-                        st.error("Error: No se pudo verificar la pestaña 'credenciales' en Google Sheets.")
+                        # ESTO ES LO IMPORTANTE: Te va a decir el error REAL
+                        st.error(f"Error real detectado: {e}")
+                        st.info("Revisá que en el Excel las columnas se llamen 'usuario' y 'clave'")
         return False
     return True
 
 if not login_nube():
-    st.stop() 
+    st.stop()
 # --- FIN DEL BLOQUE DE LOGIN ---
 
 # 3. Función para cargar TODO desde Google Sheets
