@@ -30,23 +30,20 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 # --- CONEXIÓN A DRIVE REPARADA ---
 # Verificá que en tus Secrets de Streamlit la ruta sea esta
 
-try:
-    # Intentamos obtener las credenciales de la estructura estándar
-    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-        creds_dict = st.secrets["connections"]["gsheets"]
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        
-        # Construcción de servicios
-        service_drive = build('drive', 'v3', credentials=credentials)
-        conn = st.connection("gsheets", type=GSheetsConnection)
-    else:
-        st.error("❌ No se encontraron los secretos en Streamlit Cloud.")
-        st.info("Asegúrate de que tus Secrets tengan la cabecera [connections.gsheets]")
-        st.stop()
-        
-except Exception as e:
-    st.error(f"⚠️ Error Crítico de Conexión: {e}")
-    st.stop()
+# 2. Conexión simplificada
+# Usamos solo el conector oficial de Streamlit que ya tenés configurado
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# --- CARGA DE DATOS SEGURA ---
+@st.cache_data(ttl=600)
+def cargar_datos_seguro(nombre_pestaña):
+    try:
+        return conn.read(worksheet=nombre_pestaña)
+    except Exception:
+        return pd.DataFrame()
+
+# 3. Variables Globales
+ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
 # 3. Variables Globales
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
