@@ -634,100 +634,47 @@ elif opcion == "Bitácora":
                     st.success("✅ Guardado correctamente.")
                     st.rerun()
 
-     with tab_historial:
-
-        st.subheader("📋 Historial de Gestiones")
-
-        if st.session_state.db_bitacora:
-
-            df_historial = pd.DataFrame(st.session_state.db_bitacora)
-
-            df_historial["Fecha"] = pd.to_datetime(df_historial["Fecha"]).dt.date
-
-            
-
-            empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
-
-            filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
-
-            
-
-            df_mostrar = df_historial.copy()
-
-            if filtro_emp != "Todas":
-
-                df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
-
-            
-
-            st.dataframe(
-
-                df_mostrar.sort_values("Fecha", ascending=False), 
-
-                use_container_width=True, 
-
-                hide_index=True
-
-            )
-
-            
-
-            st.write("---")
-
-            st.subheader("🗑️ Eliminar Registro")
-
-            with st.expander("Abrir panel de eliminación"):
-
-                opciones_borrar = {
-
-                    f"{f['Fecha']} | {f['Empresa']} | {str(f['Gestion'])[:30]}...": i 
-
-                    for i, f in df_mostrar.iterrows()
-
-                }
-
-                seleccion = st.selectbox("Seleccioná el registro a borrar:", [""] + list(opciones_borrar.keys()))
-
-                
-
-                if st.button("❌ Confirmar Eliminación"):
-
-                    if seleccion:
-
-                        indice = opciones_borrar[seleccion]
-
-                        st.session_state.db_bitacora.pop(indice)
-
-                        sincronizar("bitacora", st.session_state.db_bitacora)
-
-                        st.success("Registro eliminado.")
-
-                        st.rerun()
-
-        else:
-
-            st.info("Todavía no hay nada cargado en la bitácora.") 
+     
             
     with tab_alertas:
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
+            # Creamos el DataFrame para operar, pero necesitamos los índices originales
             df_b = pd.DataFrame(st.session_state.db_bitacora)
+            
             if "Recordatorio" in df_b.columns:
+                # Filtramos registros que tienen fecha (formato con guion)
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
                 
                 if not df_alertas.empty:
                     df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
-                    df_alertas = df_alertas.dropna(subset=["F_REC"]).sort_values("F_REC")
+                    df_alertas = df_alertas.sort_values("F_REC")
 
-                    for _, fila in df_alertas.iterrows():
+                    for idx, fila in df_alertas.iterrows():
                         f = fila["F_REC"]
                         vencido = f.date() <= datetime.now().date()
                         color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
                         nombre_mes = dic_meses.get(f.month, "")
                         fecha_texto = f"{f.day} de {nombre_mes}"
                         
-                        with st.expander(f"{color} | {fecha_texto} - {fila['Empresa']}"):
-                            st.write(f"**Tarea previa:** {fila['Gestion']}")
+                        # Mostramos la información directo en un contenedor con borde
+                        with st.container(border=True):
+                            col_info, col_accion = st.columns([0.8, 0.2])
+                            
+                            with col_info:
+                                st.markdown(f"**{color} | {fecha_texto} - {fila['Empresa']}**")
+                                # PEDIDO: Tarea previa a la vista directamente
+                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}")
+                            
+                            with col_accion:
+                                # PEDIDO: Quitar recordatorio (limpia la celda, no borra la fila)
+                                if st.button("Quitar 🔔", key=f"del_aviso_{idx}"):
+                                    # Modificamos solo el campo Recordatorio en la lista original usando el índice
+                                    st.session_state.db_bitacora[idx]["Recordatorio"] = "Sin aviso"
+                                    # Sincronizamos con el Excel
+                                    sincronizar("bitacora", st.session_state.db_bitacora)
+                                    st.success("Aviso quitado")
+                                    st.rerun()
                 else:
                     st.info("No tenés recordatorios programados por ahora.")
         else:
