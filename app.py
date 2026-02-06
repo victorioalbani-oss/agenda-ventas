@@ -23,35 +23,15 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CONEXIÓN A DRIVE REPARADA ---
 # 2. Conexión Directa
-#try:
- #   creds_dict = st.secrets["connections"]["gsheets"]
-  #  credentials = service_account.Credentials.from_service_account_info(creds_dict)
-  #  service_drive = build('drive', 'v3', credentials=credentials)
-  #  conn = st.connection("gsheets", type=GSheetsConnection)
-#except Exception as e:
- #   st.error(f"⚠️ Error de Conexión: {e}")
-  #  st.stop()
 try:
-    # Detectamos credenciales en cualquier formato (TOML o JSON)
-    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-        creds_dict = st.secrets["connections"]["gsheets"]
-    elif "gsheets" in st.secrets:
-        creds_dict = st.secrets["gsheets"]
-    else:
-        st.error("❌ No se encontraron Secretos.")
-        st.stop()
-
-    # Validamos campos para evitar el error de tus capturas
-    if "client_email" in creds_dict:
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        service_drive = build('drive', 'v3', credentials=credentials)
-        conn = st.connection("gsheets", type=GSheetsConnection)
-    else:
-        st.error("❌ Formato de Secretos incorrecto.")
-        st.stop()
+    creds_dict = st.secrets["connections"]["gsheets"]
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    service_drive = build('drive', 'v3', credentials=credentials)
+    conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
     st.error(f"⚠️ Error de Conexión: {e}")
     st.stop()
+
 #service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
 
