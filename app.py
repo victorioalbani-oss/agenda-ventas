@@ -23,41 +23,19 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CONEXIÓN A DRIVE REPARADA ---
 # 2. Conexión Directa
-#try:
- #   creds_dict = st.secrets["connections"]["gsheets"]
- #   credentials = service_account.Credentials.from_service_account_info(creds_dict)
- #   service_drive = build('drive', 'v3', credentials=credentials)
- #   conn = st.connection("gsheets", type=GSheetsConnection)
-#except Exception as e:
- #   st.error(f"⚠️ Error de Conexión: {e}")
-  #  st.stop()
-
-#service_drive = build('drive', 'v3', credentials=credentials)
-#ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
-
-# --- CONEXIÓN REPARADA Y SEGURA ---
 try:
-    # 1. Extraemos los secretos
-    creds_dict = dict(st.secrets["connections"]["gsheets"])
-    
-    # 2. LIMPIEZA CLAVE: Arreglamos los saltos de línea de la llave privada
-    # Esto elimina el error "Unable to load PEM file"
-    if "\\n" in creds_dict["private_key"]:
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-
-    # 3. Creamos las credenciales para Google Drive
+    creds_dict = st.secrets["connections"]["gsheets"]
     credentials = service_account.Credentials.from_service_account_info(creds_dict)
     service_drive = build('drive', 'v3', credentials=credentials)
-    
-    # 4. Creamos la conexión para Google Sheets (usando las credenciales limpias)
-    conn = st.connection("gsheets", type=GSheetsConnection, **creds_dict)
-
-except Exception as e:
-    st.error(f"⚠️ Error crítico de configuración: {e}")
-    st.info("Revisá que en Secrets la private_key esté bien pegada.")
+    conn = st.connection("gsheets", type=GSheetsConnection)
+#except Exception as e:
+    st.error(f"⚠️ Error de Conexión: {e}")
     st.stop()
 
+service_drive = build('drive', 'v3', credentials=credentials)
 ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
+
+
     
 # --------------------------------
 
