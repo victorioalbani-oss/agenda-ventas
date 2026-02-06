@@ -742,7 +742,7 @@ elif opcion == "Bitácora":
                     empresa_str = fila['Empresa']
                     gestion_resumen = fila['Gestion'][:60] + "..." if len(fila['Gestion']) > 60 else fila['Gestion']
                     
-                    with st.expander(f"📅 {fecha_str} | 🏢 {empresa_str} | 📝 {gestion_resumen}"):
+                    with st.expander(f"📅 {fecha_str} | 🏢 **{empresa_str}** | 📝 {gestion_resumen}"):
                         st.markdown(f"**Empresa:** {empresa_str}")
                         st.markdown(f"**Fecha:** {fecha_str}")
                         st.info(fila['Gestion'])
