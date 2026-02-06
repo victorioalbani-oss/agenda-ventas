@@ -90,8 +90,6 @@ ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
     
 # --------------------------------
 
-# --- INICIO DEL BLOQUE DE LOGIN  ---
-# --- BLOQUE DE LOGIN DIAGNÓSTICO ---
  # --- INICIO DEL BLOQUE DE LOGIN  ---
 
 def login_nube():
@@ -119,34 +117,31 @@ def login_nube():
 
                
 
-                if submit:
-
+               if submit:
                     try:
-
-                        # Buscamos en la pestaña 'credenciales' del Sheets
-
-                        df_creds = conn.read(worksheet="credenciales", ttl=0)
-
-                        valido = df_creds[(df_creds['usuario'] == user_input) & 
-
-                                          (df_creds['clave'].astype(str) == str(pass_input))]
-
+                        # 1. Leemos la pestaña (usando el conn que ya definiste)
+                        df_creds = conn.read(worksheet="credenciales")
                         
+                        # Limpiamos nombres de columnas por si acaso (evita errores de espacios)
+                        df_creds.columns = [c.strip().lower() for c in df_creds.columns]
 
+                        # 2. Verificación Blindada
+                        # Comparamos todo como texto (.astype(str)) y quitamos espacios (.strip())
+                        valido = df_creds[
+                            (df_creds['usuario'].astype(str).strip() == str(user_input).strip()) & 
+                            (df_creds['clave'].astype(str).strip() == str(pass_input).strip())
+                        ]
+                        
                         if not valido.empty:
-
                             st.session_state.autenticado = True
-
                             st.rerun()
-
                         else:
-
-                            st.error("Usuario o contraseña incorrectos")
-
+                            st.error("❌ Usuario o contraseña incorrectos")
+                            
                     except Exception as e:
-
-                        st.error("Error: No se pudo verificar la pestaña 'credenciales' en Google Sheets.")
-
+                        # CAMBIO CLAVE: Acá verás el error real si algo falla
+                        st.error(f"⚠️ Error de datos: {e}")
+                        st.info("Asegurate que en el Excel las columnas sean 'usuario' y 'clave'")
         return False
     return True
     
