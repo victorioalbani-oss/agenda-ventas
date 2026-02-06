@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
-from datetime import datetime
+from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
@@ -595,29 +595,36 @@ elif opcion == "Bitácora":
         if not st.session_state.db_contactos:
             st.warning("⚠️ Primero cargá un contacto.")
         else:
-            with st.form("form_bit", clear_on_submit=True):
+            # Iniciamos el formulario
+            with st.form("form_bit_vico", clear_on_submit=True):
                 lista_empresas = sorted([c['Empresa'] for c in st.session_state.db_contactos])
                 emp_b = st.selectbox("Asociar a Empresa", lista_empresas)
                 fecha_realizada = st.date_input("Fecha Realizada", datetime.now())
                 cont = st.text_area("Detalle de la gestión")
                 
-                # --- NUEVA SECCIÓN DE RECORDATORIO ---
                 st.write("---")
-                activar_rec = st.checkbox("¿Programar un recordatorio para el futuro?")
+                st.subheader("⏰ Recordatorio Opcional")
+                activar_rec = st.checkbox("¿Programar aviso futuro?")
+                # Aquí usamos timedelta, que ahora sí funcionará con el import de arriba
                 fecha_rec = st.date_input("Fecha del Recordatorio", datetime.now() + timedelta(days=7))
                 
-                if st.form_submit_button("Cargar Bitácora"):
-                    nuevo_registro = {
-                        "Fecha": str(fecha_realizada), 
-                        "Empresa": emp_b, 
-                        "Gestion": cont,
-                        "Recordatorio": str(fecha_rec) if activar_rec else "" # Se guarda en la nueva columna
-                    }
-                    
-                    st.session_state.db_bitacora.append(nuevo_registro)
-                    sincronizar("bitacora", st.session_state.db_bitacora)
-                    st.success(f"✅ Registro guardado. {'Recordatorio fijado.' if activar_rec else ''}")
-                    st.rerun()
+                # EL BOTÓN DEBE ESTAR ADENTRO DEL 'with st.form'
+                btn_cargar = st.form_submit_button("🚀 Cargar Bitácora")
+
+            # La lógica del botón va afuera o justo al final del bloque indentado
+            if btn_cargar:
+                nuevo_registro = {
+                    "Fecha": str(fecha_realizada), 
+                    "Empresa": emp_b, 
+                    "Gestion": cont,
+                    "Recordatorio": str(fecha_rec) if activar_rec else ""
+                }
+                
+                st.session_state.db_bitacora.append(nuevo_registro)
+                sincronizar("bitacora", st.session_state.db_bitacora)
+                st.success(f"✅ ¡Bitácora guardada para {emp_b}!")
+                st.balloons()
+                st.rerun()
 
     with b2:
         st.subheader("🔎 Historial de Gestiones")
