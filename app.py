@@ -591,6 +591,7 @@ elif opcion == "Órdenes de Compra":
                 st.info("No hay órdenes.")
 
 # --- Modulo Bitacora ----
+# --- Modulo Bitacora ----
 elif opcion == "Bitácora":
     st.header("📝 Bitácora de Actividad y Recordatorios")
     
@@ -621,7 +622,12 @@ elif opcion == "Bitácora":
                 
                 if st.form_submit_button("🚀 Guardar Gestión"):
                     valor_rec = str(fecha_futura) if tiene_rec else "Sin aviso"
-                    nuevo = {"Fecha": str(f_hoy), "Empresa": emp_b, "Gestion": detalle, "Recordatorio": valor_rec}
+                    nuevo = {
+                        "Fecha": str(f_hoy), 
+                        "Empresa": emp_b, 
+                        "Gestion": detalle, 
+                        "Recordatorio": valor_rec
+                    }
                     st.session_state.db_bitacora.append(nuevo)
                     sincronizar("bitacora", st.session_state.db_bitacora)
                     st.success("✅ Guardado correctamente.")
@@ -631,16 +637,26 @@ elif opcion == "Bitácora":
         st.subheader("📋 Historial de Gestiones")
         if st.session_state.db_bitacora:
             df_historial = pd.DataFrame(st.session_state.db_bitacora)
-            st.dataframe(df_historial, use_container_width=True, hide_index=True)
+            # Filtro por empresa
+            empresas_en_bitacora = ["Todas"] + sorted(list(df_historial["Empresa"].unique()))
+            filtro_emp = st.selectbox("Filtrar historial por empresa:", empresas_en_bitacora)
+            
+            df_mostrar = df_historial.copy()
+            if filtro_emp != "Todas":
+                df_mostrar = df_mostrar[df_mostrar["Empresa"] == filtro_emp]
+            
+            st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
         else:
             st.info("Todavía no hay nada cargado.")
-
+            
     with tab_alertas:
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
             df_b = pd.DataFrame(st.session_state.db_bitacora)
             if "Recordatorio" in df_b.columns:
+                # Buscamos los que tienen fecha (contienen guion)
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
+                
                 if not df_alertas.empty:
                     df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
                     df_alertas = df_alertas.sort_values("F_REC")
@@ -648,20 +664,25 @@ elif opcion == "Bitácora":
                     for idx, fila in df_alertas.iterrows():
                         f = fila["F_REC"]
                         vencido = f.date() <= datetime.now().date()
-                        nombre_mes = dic_meses.get(f.month, "")
+                        color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
                         
+                        # --- MEJORA: Todo a la vista ---
                         with st.container(border=True):
                             c1, c2 = st.columns([0.8, 0.2])
                             with c1:
-                                st.markdown(f"**{'🔴 VENCIDO' if vencido else '⏳ Pendiente'} | {f.day} de {nombre_mes} - {fila['Empresa']}**")
-                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}") # VISTA DIRECTA
+                                st.markdown(f"**{color} | {f.day} de {dic_meses.get(f.month)} - {fila['Empresa']}**")
+                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}") # Esto es lo que querías ver directo
                             with c2:
-                                if st.button("Quitar 🔔", key=f"del_aviso_{idx}"):
+                                # --- MEJORA: Quitar solo el aviso ---
+                                if st.button("Quitar 🔔", key=f"q_{idx}"):
                                     st.session_state.db_bitacora[idx]["Recordatorio"] = "Sin aviso"
                                     sincronizar("bitacora", st.session_state.db_bitacora)
+                                    st.success("Aviso quitado")
                                     st.rerun()
                 else:
-                    st.info("No tenés recordatorios programados.")
+                    st.info("No hay avisos pendientes.")
+        else:
+            st.info("La bitácora está vacía.")
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
