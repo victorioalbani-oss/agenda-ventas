@@ -821,20 +821,7 @@ elif opcion == "Bitácora":
                         st.session_state.db_bitacora.pop(idx_borrar)
                         sincronizar("bitacora", st.session_state.db_bitacora)
                         st.rerun()
-            # --- SECCIÓN DE BORRADO (Opcional, se mantiene igual) ---
-            st.write("---")
-            with st.expander("🗑️ Eliminar una gestión"):
-                opciones_borrar = [
-                    f"{idx} | {g['Fecha']} | {g['Empresa']} | {g['Gestion'][:30]}..." 
-                    for idx, g in enumerate(st.session_state.db_bitacora)
-                ]
-                seleccion_borrar = st.selectbox("Seleccionar para borrar:", ["Seleccionar..."] + opciones_borrar, key="del_bit_hist")
-                if st.button("❌ Confirmar Borrado"):
-                    if seleccion_borrar != "Seleccionar...":
-                        idx_borrar = int(seleccion_borrar.split(" | ")[0])
-                        st.session_state.db_bitacora.pop(idx_borrar)
-                        sincronizar("bitacora", st.session_state.db_bitacora)
-                        st.rerun()
+            
         else:
             st.info("Todavía no hay nada cargado en la bitácora.")
                 
