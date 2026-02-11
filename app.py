@@ -750,7 +750,77 @@ elif opcion == "Bitácora":
                             st.write(f"🔔 **Próximo aviso:** {fila['Recordatorio']}")
             else:
                 st.warning("No hay registros para los filtros seleccionados.")
+            
+            # --- SECCIÓN DE EDICIÓN ---
+            st.write("---")
+            with st.expander("📝 Editar una gestión existente"):
+                # Creamos la lista de opciones para elegir qué editar
+                opciones_edit = [
+                    f"{idx} | {g['Fecha']} | {g['Empresa']} | {g['Gestion'][:30]}..." 
+                    for idx, g in enumerate(st.session_state.db_bitacora)
+                ]
+                seleccion_edit = st.selectbox("Seleccionar gestión para MODIFICAR:", ["Seleccionar..."] + opciones_edit, key="edit_bit_sel")
+                
+                if seleccion_edit != "Seleccionar...":
+                    idx_edit = int(seleccion_edit.split(" | ")[0])
+                    gestion_previa = st.session_state.db_bitacora[idx_edit]
+                    
+                    # Formulario de edición
+                    with st.form("form_edit_bitacora"):
+                        st.write(f"### Editando Registro N° {idx_edit}")
+                        
+                        # Empresa (puedes cambiarla si te equivocaste de cliente)
+                        lista_emp_edit = sorted([c['Empresa'] for c in st.session_state.db_contactos])
+                        new_emp = st.selectbox("Empresa", lista_emp_edit, index=lista_emp_edit.index(gestion_previa['Empresa']))
+                        
+                        # Fecha
+                        fecha_previa = datetime.strptime(gestion_previa['Fecha'], '%Y-%m-%d')
+                        new_fecha = st.date_input("Fecha", fecha_previa)
+                        
+                        # Detalle
+                        new_gestion = st.text_area("Gestión realizada", value=gestion_previa['Gestion'])
+                        
+                        # Recordatorio
+                        rec_previo = gestion_previa['Recordatorio']
+                        tiene_rec_prev = "-" in rec_previo
+                        
+                        c_ed1, c_ed2 = st.columns(2)
+                        with c_ed1:
+                            new_tiene_rec = st.checkbox("📌 Programar Aviso Futuro", value=tiene_rec_prev)
+                        with c_ed2:
+                            # Si no tenía fecha, ponemos hoy + 7 por defecto
+                            val_fecha_rec = datetime.strptime(rec_previo, '%Y-%m-%d') if tiene_rec_prev else (datetime.now() + timedelta(days=7))
+                            new_fecha_futura = st.date_input("Nueva fecha de aviso", val_fecha_rec)
+                        
+                        if st.form_submit_button("💾 Guardar Cambios en Nube"):
+                            new_val_rec = str(new_fecha_futura) if new_tiene_rec else "Sin aviso"
+                            
+                            # Actualizamos el registro en la lista
+                            st.session_state.db_bitacora[idx_edit] = {
+                                "Fecha": str(new_fecha),
+                                "Empresa": new_emp,
+                                "Gestion": new_gestion,
+                                "Recordatorio": new_val_rec
+                            }
+                            
+                            sincronizar("bitacora", st.session_state.db_bitacora)
+                            st.success("✅ Gestión actualizada correctamente.")
+                            st.rerun()
 
+            # --- SECCIÓN DE BORRADO (Se mantiene igual bajo la edición) ---
+            st.write("---")
+            with st.expander("🗑️ Eliminar una gestión"):
+                opciones_borrar = [
+                    f"{idx} | {g['Fecha']} | {g['Empresa']} | {g['Gestion'][:30]}..." 
+                    for idx, g in enumerate(st.session_state.db_bitacora)
+                ]
+                seleccion_borrar = st.selectbox("Seleccionar para borrar:", ["Seleccionar..."] + opciones_borrar, key="del_bit_hist")
+                if st.button("❌ Confirmar Borrado"):
+                    if seleccion_borrar != "Seleccionar...":
+                        idx_borrar = int(seleccion_borrar.split(" | ")[0])
+                        st.session_state.db_bitacora.pop(idx_borrar)
+                        sincronizar("bitacora", st.session_state.db_bitacora)
+                        st.rerun()
             # --- SECCIÓN DE BORRADO (Opcional, se mantiene igual) ---
             st.write("---")
             with st.expander("🗑️ Eliminar una gestión"):
