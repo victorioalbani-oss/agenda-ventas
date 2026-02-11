@@ -770,7 +770,10 @@ elif opcion == "Bitácora":
                         st.session_state.db_bitacora.pop(idx_borrar)
                         sincronizar("bitacora", st.session_state.db_bitacora)
                         st.rerun()
+                        
             # --- SECCIÓN DE FILTROS ---
+            st.write("---")
+            
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
