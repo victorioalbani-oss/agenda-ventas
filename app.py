@@ -733,8 +733,6 @@ elif opcion == "Bitácora":
                     (df_mostrar["Fecha_DT"].dt.date <= f_fin)
                 ]
 
-            st.write("---")
-
              # --- SECCIÓN DE EDICIÓN ---
             st.write("---")
             with st.expander("📝 Editar una gestión existente"):
