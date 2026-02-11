@@ -735,23 +735,7 @@ elif opcion == "Bitácora":
 
             st.write("---")
 
-            # --- VISUALIZACIÓN ---
-            if not df_mostrar.empty:
-                for i, fila in df_mostrar.iterrows():
-                    fecha_str = fila['Fecha']
-                    empresa_str = fila['Empresa']
-                    gestion_resumen = fila['Gestion'][:60] + "..." if len(fila['Gestion']) > 60 else fila['Gestion']
-                    
-                    with st.expander(f"📅 {fecha_str} | 🏢 **{empresa_str}** | 📝 {gestion_resumen}"):
-                        st.markdown(f"**Empresa:** {empresa_str}")
-                        st.markdown(f"**Fecha:** {fecha_str}")
-                        st.info(fila['Gestion'])
-                        if fila['Recordatorio'] not in ["Sin aviso", "Realizado"]:
-                            st.write(f"🔔 **Próximo aviso:** {fila['Recordatorio']}")
-            else:
-                st.warning("No hay registros para los filtros seleccionados.")
-            
-            # --- SECCIÓN DE EDICIÓN ---
+             # --- SECCIÓN DE EDICIÓN ---
             st.write("---")
             with st.expander("📝 Editar una gestión existente"):
                 # Creamos la lista de opciones para elegir qué editar
@@ -822,6 +806,23 @@ elif opcion == "Bitácora":
                         sincronizar("bitacora", st.session_state.db_bitacora)
                         st.rerun()
             
+            # --- VISUALIZACIÓN ---
+            
+            if not df_mostrar.empty:
+                for i, fila in df_mostrar.iterrows():
+                    fecha_str = fila['Fecha']
+                    empresa_str = fila['Empresa']
+                    gestion_resumen = fila['Gestion'][:60] + "..." if len(fila['Gestion']) > 60 else fila['Gestion']
+                    
+                    with st.expander(f"📅 {fecha_str} | 🏢 **{empresa_str}** | 📝 {gestion_resumen}"):
+                        st.markdown(f"**Empresa:** {empresa_str}")
+                        st.markdown(f"**Fecha:** {fecha_str}")
+                        st.info(fila['Gestion'])
+                        if fila['Recordatorio'] not in ["Sin aviso", "Realizado"]:
+                            st.write(f"🔔 **Próximo aviso:** {fila['Recordatorio']}")
+            else:
+                st.warning("No hay registros para los filtros seleccionados.")
+                        
         else:
             st.info("Todavía no hay nada cargado en la bitácora.")
                 
