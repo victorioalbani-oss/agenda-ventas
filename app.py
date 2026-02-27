@@ -1196,69 +1196,32 @@ elif opcion == "Diseño":
 
 # --- MÓDULO MAPA CON AUTO-GUARDADO ---
 elif opcion == "Google Maps":
-    st.header("🌎 Mapa Inteligente de Clientes")
-    st.write("La app está completando las coordenadas en tu Excel automáticamente para que el mapa cargue rápido.")
+    st.header("🌎 Mi Mapa Personalizado de Empresas")
+    
+    # 1. PEGA AQUÍ EL LINK QUE COPIASTE DEL "IFRAME"
+    # Debe verse parecido a este ejemplo:
+    URL_MI_MAPA = "https://www.google.com/maps/d/u/0/edit?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&usp=sharing" 
 
-    if not st.session_state.db_contactos:
-        st.warning("No hay contactos cargados.")
+    if "TU_ID_DE_MAPA" in URL_MI_MAPA:
+        st.warning("⚠️ Todavía no pegaste el link de tu mapa en el código.")
+        st.info("Para obtenerlo: En My Maps ve a los 3 puntitos -> 'Insertar en mi sitio' -> Copia el link dentro de src.")
     else:
-        from streamlit_folium import st_folium
-        import folium
-        from geopy.geocoders import Nominatim
-        import time
-
-        df_contactos = pd.DataFrame(st.session_state.db_contactos)
-        
-        # Aseguramos que existan las columnas en el DataFrame local
-        if 'Latitud' not in df_contactos.columns: df_contactos['Latitud'] = ""
-        if 'Longitud' not in df_contactos.columns: df_contactos['Longitud'] = ""
-
-        geolocator = Nominatim(user_agent="vico_app_pro_geocoder")
-        m = folium.Map(location=[-34.6037, -58.3816], zoom_start=11)
-        
-        # Botón para procesar bloques de 20 empresas (para no saturar)
-        if st.button("🛰️ Buscar coordenadas de nuevas empresas"):
-            faltantes = df_contactos[df_contactos['Latitud'].astype(str).str.strip() == ""].head(20)
+        try:
+            # Creamos el contenedor del mapa
+            st.components.v1.html(
+                f"""
+                <iframe src="{URL_MI_MAPA}" 
+                width="100%" height="600" 
+                style="border:2px solid #ccc; border-radius:10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1);">
+                </iframe>
+                """,
+                height=620,
+            )
             
-            if faltantes.empty:
-                st.success("✅ ¡Todas las empresas ya tienen coordenadas en el Excel!")
-            else:
-                progreso = st.progress(0)
-                for idx, row in faltantes.iterrows():
-                    direc = str(row['Maps']) # Tu columna con Calle, Ciudad, Pais
-                    try:
-                        loc = geolocator.geocode(direc, timeout=10)
-                        if loc:
-                            # Guardamos en el DataFrame
-                            df_contactos.at[idx, 'Latitud'] = loc.latitude
-                            df_contactos.at[idx, 'Longitud'] = loc.longitude
-                            st.write(f"📍 Ubicado: {row['Empresa']}")
-                        time.sleep(1) # Respetamos el límite del buscador gratuito
-                    except:
-                        pass
-                    progreso.progress((idx + 1) / len(faltantes))
-                
-                # --- AQUÍ SUCEDE LA MAGIA: Guardamos los cambios en el Google Sheets ---
-                sincronizar("contactos", df_contactos.to_dict('records'))
-                st.success("Excel actualizado con nuevas coordenadas. Recargando...")
-                st.rerun()
+            st.success("✅ Mapa cargado. Recuerda que puedes buscar empresas usando la lupa dentro del mapa.")
+            
+        except Exception as e:
+            st.error(f"No se pudo cargar el mapa: {e}")
 
-        # DIBUJAR PINES (Solo los que tienen Lat/Lon)
-        contador = 0
-        for _, row in df_contactos.iterrows():
-            try:
-                lat = float(row['Latitud'])
-                lon = float(row['Longitud'])
-                folium.Marker(
-                    [lat, lon],
-                    popup=f"<b>{row['Empresa']}</b>",
-                    tooltip=row['Empresa'],
-                    icon=folium.Icon(color="red", icon="industry", prefix='fa')
-                ).add_to(m)
-                contador += 1
-            except:
-                continue
-
-        if contador > 0:
-            st_folium(m, width=1000, height=600)
-            st.caption(f"Viendo {contador} empresas con ubicación confirmada.")
+    st.write("---")
+    st.caption("Nota: Este mapa es una ventana a tu Google My Maps. Los cambios que hagas allá se verán aquí al recargar.")
