@@ -1226,3 +1226,76 @@ elif opcion == "Google Maps":
         st.error(f"No se pudo cargar el mapa: {e}")
 
     st.info("💡 Si no ves la lupa, fijate en la barra blanca superior del mapa, a la izquierda del título.")
+
+# --- MÓDULO MAPA ACTUALIZADO CON PESTAÑAS ---
+elif opcion == "Google Maps":
+    st.header("🌎 Gestión de Mapa de Clientes")
+
+    # Definimos las dos pestañas
+    tab_general, tab_busqueda = st.tabs(["📍 Todas en el Mapa", "🔍 Buscar Empresa en Mapa"])
+
+    # --- PESTAÑA 1: VISTA GENERAL ---
+    with tab_general:
+        st.subheader("Mapa General")
+        
+        # El link de siempre (aseguráte de que sea el de /embed para que no falle)
+        URL_BASE = "https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
+        
+        # Botón para saltar a la App oficial
+        st.link_button("📱 Abrir en App Google Maps (Pantalla Completa)", 
+                       URL_BASE.replace("embed", "viewer"), 
+                       use_container_width=True)
+
+        try:
+            st.components.v1.html( 
+                f"""
+                <div style="border:2px solid #4A90E2; border-radius:15px; overflow:hidden;">
+                    <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
+                    width="100%" height="800" 
+                    frameborder="0"
+                    allowfullscreen>
+                    </iframe>
+                </div>
+                """,
+                height=820,
+            )
+
+        except Exception as e:
+            st.error(f"No se pudo cargar el mapa: {e}")
+        
+        st.info("💡 En esta vista puedes ver la distribución de todos tus pines.")
+
+    # --- PESTAÑA 2: BUSCADOR DE PRECISIÓN ---
+    with tab_busqueda:
+        st.subheader("Buscador Directo al Pin")
+        st.write("Seleccioná una empresa para abrir su ubicación exacta en Google Maps.")
+
+        if st.session_state.db_contactos:
+            df_contactos = pd.DataFrame(st.session_state.db_contactos)
+            
+            # Buscador con autocompletado
+            empresa_buscada = st.selectbox(
+                "🏢 Seleccioná o escribí el nombre de la empresa:", 
+                [""] + sorted(df_contactos['Empresa'].tolist()),
+                key="busqueda_mapa_tab"
+            )
+            
+            if empresa_buscada:
+                # Extraemos los datos de esa empresa
+                datos_emp = df_contactos[df_contactos['Empresa'] == empresa_buscada].iloc[0]
+                direccion = datos_emp.get('Maps', '')
+                actividad = datos_emp.get('Actividad', 'Sin actividad definida')
+
+                with st.container(border=True):
+                    st.write(f"### {empresa_buscada}")
+                    st.write(f"📍 **Dirección:** {direccion}")
+                    st.write(f"🛠️ **Actividad:** {actividad}")
+                    
+                    # El link de búsqueda de Google Maps (esto abre el pin directamente)
+                    search_url = f"https://www.google.com/maps/search/{direccion.replace(' ', '+')}"
+                    
+                    st.link_button(f"🚀 Ver pin de {empresa_buscada} en Maps", search_url, use_container_width=True)
+        else:
+            st.warning("No hay contactos en la base de datos para buscar.")
+
+    st.write("---")
