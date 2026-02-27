@@ -1194,68 +1194,71 @@ elif opcion == "Diseño":
             url_carpeta = f"https://drive.google.com/drive/folders/{id_subcarpeta}"
             st.link_button("📂 Abrir carpeta completa en Google Drive", url_carpeta, use_container_width=True)
 
-# --- MÓDULO MAPA OPTIMIZADO ---
+# --- MÓDULO MAPA CON AUTO-GUARDADO ---
 elif opcion == "Google Maps":
-    st.header("🌎 Mapa de Contactos (Carga Rápida)")
-    
+    st.header("🌎 Mapa Inteligente de Clientes")
+    st.write("La app está completando las coordenadas en tu Excel automáticamente para que el mapa cargue rápido.")
+
     if not st.session_state.db_contactos:
         st.warning("No hay contactos cargados.")
     else:
         from streamlit_folium import st_folium
         import folium
         from geopy.geocoders import Nominatim
-        
-        # 1. ESTADO PARA GUARDAR COORDENADAS (Para no calcular mil veces)
-        if "coords_cache" not in st.session_state:
-            st.session_state.coords_cache = {}
+        import time
 
         df_contactos = pd.DataFrame(st.session_state.db_contactos)
         
-        # Filtros rápidos sobre el mapa
-        busc_mapa = st.text_input("🔍 Buscar por nombre de empresa:", "").lower()
-        
+        # Aseguramos que existan las columnas en el DataFrame local
+        if 'Latitud' not in df_contactos.columns: df_contactos['Latitud'] = ""
+        if 'Longitud' not in df_contactos.columns: df_contactos['Longitud'] = ""
+
+        geolocator = Nominatim(user_agent="vico_app_pro_geocoder")
         m = folium.Map(location=[-34.6037, -58.3816], zoom_start=11)
-        geolocator = Nominatim(user_agent="vico_app_final")
         
-        btn_procesar = st.button("🚀 Procesar/Actualizar Ubicaciones")
-        if btn_procesar:
-            progreso = st.progress(0)
-            status_text = st.empty()
+        # Botón para procesar bloques de 20 empresas (para no saturar)
+        if st.button("🛰️ Buscar coordenadas de nuevas empresas"):
+            faltantes = df_contactos[df_contactos['Latitud'].astype(str).str.strip() == ""].head(20)
             
-            for i, row in df_contactos.iterrows():
-                empresa = row['Empresa']
-                direccion = str(row['Maps'])
-                
-                # Solo buscamos si no la tenemos ya en el cache
-                if empresa not in st.session_state.coords_cache and direccion != "nan":
-                    status_text.text(f"Ubicando a: {empresa}...")
+            if faltantes.empty:
+                st.success("✅ ¡Todas las empresas ya tienen coordenadas en el Excel!")
+            else:
+                progreso = st.progress(0)
+                for idx, row in faltantes.iterrows():
+                    direc = str(row['Maps']) # Tu columna con Calle, Ciudad, Pais
                     try:
-                        loc = geolocator.geocode(direccion, timeout=5)
+                        loc = geolocator.geocode(direc, timeout=10)
                         if loc:
-                            st.session_state.coords_cache[empresa] = (loc.latitude, loc.longitude)
+                            # Guardamos en el DataFrame
+                            df_contactos.at[idx, 'Latitud'] = loc.latitude
+                            df_contactos.at[idx, 'Longitud'] = loc.longitude
+                            st.write(f"📍 Ubicado: {row['Empresa']}")
+                        time.sleep(1) # Respetamos el límite del buscador gratuito
                     except:
                         pass
-                progreso.progress((i + 1) / len(df_contactos))
-            status_text.text("✅ ¡Ubicaciones procesadas!")
-
-        # 2. DIBUJAR PINES DESDE EL CACHE
-        contador = 0
-        for i, row in df_contactos.iterrows():
-            empresa = row['Empresa']
-            if busc_mapa and busc_mapa not in empresa.lower():
-                continue
+                    progreso.progress((idx + 1) / len(faltantes))
                 
-            if empresa in st.session_state.coords_cache:
-                lat, lon = st.session_state.coords_cache[empresa]
+                # --- AQUÍ SUCEDE LA MAGIA: Guardamos los cambios en el Google Sheets ---
+                sincronizar("contactos", df_contactos.to_dict('records'))
+                st.success("Excel actualizado con nuevas coordenadas. Recargando...")
+                st.rerun()
+
+        # DIBUJAR PINES (Solo los que tienen Lat/Lon)
+        contador = 0
+        for _, row in df_contactos.iterrows():
+            try:
+                lat = float(row['Latitud'])
+                lon = float(row['Longitud'])
                 folium.Marker(
                     [lat, lon],
-                    popup=f"<b>{empresa}</b><br>{row['Maps']}",
-                    tooltip=empresa,
+                    popup=f"<b>{row['Empresa']}</b>",
+                    tooltip=row['Empresa'],
                     icon=folium.Icon(color="red", icon="industry", prefix='fa')
                 ).add_to(m)
                 contador += 1
+            except:
+                continue
 
         if contador > 0:
-            st_folium(m, width=1000, height=600, key="mapa_vico")
-        else:
-            st.info("Presioná el botón 'Procesar Ubicaciones' para ver los pines en el mapa.")
+            st_folium(m, width=1000, height=600)
+            st.caption(f"Viendo {contador} empresas con ubicación confirmada.")
