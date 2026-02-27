@@ -1198,31 +1198,31 @@ elif opcion == "Diseño":
 elif opcion == "Google Maps":
     st.header("🌎 Mapa de Empresas")
     
-    # Aseguramos que el link sea el de /embed
-    URL_MI_MAPA = "http://googleusercontent.com/maps.google.com/7" 
+    # 1. Asegúrate de que el ID sea el correcto. 
+    # Si tu link termina en /embed?mid=... CAMBIALO a /viewer?mid=...
+    URL_BASE = "http://googleusercontent.com/maps.google.com/8" # <--- PEGA TU LINK ACÁ
     
-    # Creamos un botón para abrir en la App de Google Maps o pestaña nueva
-    # Cambiamos /embed por /viewer para que sea más compatible con móviles
-    URL_APP = URL_MI_MAPA.replace("embed", "viewer")
+    # Forzamos que sea la versión 'viewer' para que aparezca la lupa
+    URL_VIEWER = URL_BASE.replace("embed", "viewer")
     
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        st.write("Usa la lupa 🔍 dentro del mapa para buscar empresas.")
-    with col2:
-        st.link_button("📱 Abrir en Maps", URL_APP)
+    # Botón para salir a la App
+    st.link_button("📱 Abrir en App Google Maps", URL_VIEWER, use_container_width=True)
 
     try:
-        # Subimos el height a 800 para que se vea mucho más grande
+        # Usamos un truco de estilo para que el mapa se adapte mejor
         st.components.v1.html(
             f"""
-            <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
-            width="100%" height="800" 
-            style="border:2px solid #ccc; border-radius:15px;">
-            </iframe>
+            <div style="border:2px solid #4A90E2; border-radius:15px; overflow:hidden;">
+                <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
+                width="100%" height="800" 
+                frameborder="0"
+                allowfullscreen>
+                </iframe>
+            </div>
             """,
-            height=820, # Le damos un margen extra al contenedor
+            height=820,
         )
     except Exception as e:
         st.error(f"No se pudo cargar el mapa: {e}")
 
-    st.caption("Tip: Si estás en el celular, el botón de arriba abrirá directamente la App de Google Maps.")
+    st.info("💡 Si no ves la lupa, fijate en la barra blanca superior del mapa, a la izquierda del título.")
