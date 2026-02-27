@@ -1210,10 +1210,7 @@ elif opcion == "Google Maps":
             # Creamos el contenedor del mapa
             st.components.v1.html(
                 f"""
-                <iframe src="{URL_MI_MAPA}" 
-                width="100%" height="600" 
-                style="border:2px solid #ccc; border-radius:10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1);">
-                </iframe>
+                <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" width="640" height="480"></iframe>
                 """,
                 height=620,
             )
