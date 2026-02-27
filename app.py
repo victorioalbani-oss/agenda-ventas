@@ -1224,22 +1224,21 @@ elif opcion == "Google Maps":
 
         contador_pines = 0
         
-        # Iteramos sobre tus contactos (usamos los primeros 20 para que no tarde mil años en cada recarga)
-        for i, row in df_contactos.head(20).iterrows():
+        # Iteramos sobre tus contactos
+        for i, row in df_contactos.iterrows():
             empresa = row['Empresa']
-            direccion = row['Maps'] # Usamos tu columna "Maps"
+            # Limpiamos un poco el texto de la dirección para que el buscador no se pierda
+            direccion = str(row['Maps']).split(", Argentina")[0].strip() 
             
-            # Filtro de búsqueda
             if busc_mapa and busc_mapa not in empresa.lower():
                 continue
 
-            if direccion:
+            if direccion and direccion != "nan":
                 try:
-                    # Convertimos la dirección de la columna Maps en coordenadas
-                    loc = geolocator.geocode(direccion)
+                    # Le damos un poco más de tiempo entre consultas (timeout)
+                    loc = geolocator.geocode(direccion, timeout=10)
                     if loc:
-                        # Creamos el pin con los datos del contacto
-                        popup_text = f"<b>{empresa}</b><br>{direccion}<br>Actividad: {row['Actividad']}"
+                        popup_text = f"<b>{empresa}</b><br>{direccion}<br><i>{row['Actividad']}</i>"
                         folium.Marker(
                             [loc.latitude, loc.longitude],
                             popup=folium.Popup(popup_text, max_width=300),
@@ -1247,7 +1246,8 @@ elif opcion == "Google Maps":
                             icon=folium.Icon(color="red", icon="industry", prefix='fa')
                         ).add_to(m)
                         contador_pines += 1
-                except:
+                except Exception as e:
+                    # Si falla uno, que siga con el siguiente sin detener la app
                     continue
 
         # 3. Mostrar el Mapa
