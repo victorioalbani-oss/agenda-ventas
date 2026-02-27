@@ -206,7 +206,7 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
     st.success("¡Datos sincronizados!")
     st.rerun()
 
-opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Diseño", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas"])
+opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Diseño", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas", "Google Maps"])
 
 # --- MÓDULO PRODUCTOS ---
 if opcion == "Productos":
@@ -1193,3 +1193,69 @@ elif opcion == "Diseño":
             # Botón para abrir la carpeta completa
             url_carpeta = f"https://drive.google.com/drive/folders/{id_subcarpeta}"
             st.link_button("📂 Abrir carpeta completa en Google Drive", url_carpeta, use_container_width=True)
+
+# --- MÓDULO MAPA CONECTADO A GOOGLE SHEETS ---
+elif opcion == "Google Maps":
+    st.header("🌎 Mapa Geolocalizado de Contactos")
+    st.write("Este mapa traduce las direcciones de la columna **Maps** en pines reales.")
+
+    if not st.session_state.db_contactos:
+        st.warning("No hay contactos cargados para mostrar en el mapa.")
+    else:
+        from streamlit_folium import st_folium
+        import folium
+        from geopy.geocoders import Nominatim
+        from geopy.extra.rate_limiter import RateLimiter
+
+        # 1. Cargamos los datos de tus contactos
+        df_contactos = pd.DataFrame(st.session_state.db_contactos)
+
+        # 2. Configuración del Mapa (Centrado en Argentina)
+        m = folium.Map(location=[-34.6037, -58.3816], zoom_start=11)
+        
+        # Geocodificador (limita a 1 consulta por segundo para que no nos bloqueen)
+        geolocator = Nominatim(user_agent="vico_app_ventas")
+        geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+
+        st.info("📍 Procesando ubicaciones desde el Excel... Por favor, espera.")
+        
+        # Buscador para filtrar en el mapa
+        busc_mapa = st.text_input("🔍 Buscar empresa en el mapa:", "").lower()
+
+        contador_pines = 0
+        
+        # Iteramos sobre tus contactos (usamos los primeros 20 para que no tarde mil años en cada recarga)
+        for i, row in df_contactos.head(20).iterrows():
+            empresa = row['Empresa']
+            direccion = row['Maps'] # Usamos tu columna "Maps"
+            
+            # Filtro de búsqueda
+            if busc_mapa and busc_mapa not in empresa.lower():
+                continue
+
+            if direccion:
+                try:
+                    # Convertimos la dirección de la columna Maps en coordenadas
+                    loc = geolocator.geocode(direccion)
+                    if loc:
+                        # Creamos el pin con los datos del contacto
+                        popup_text = f"<b>{empresa}</b><br>{direccion}<br>Actividad: {row['Actividad']}"
+                        folium.Marker(
+                            [loc.latitude, loc.longitude],
+                            popup=folium.Popup(popup_text, max_width=300),
+                            tooltip=empresa,
+                            icon=folium.Icon(color="red", icon="industry", prefix='fa')
+                        ).add_to(m)
+                        contador_pines += 1
+                except:
+                    continue
+
+        # 3. Mostrar el Mapa
+        if contador_pines > 0:
+            st_folium(m, width=1000, height=600)
+            st.success(f"Se han ubicado {contador_pines} empresas en el mapa.")
+        else:
+            st.warning("No se pudieron geolocalizar las direcciones. Revisá que la columna 'Maps' tenga datos válidos.")
+
+    st.write("---")
+    st.caption("Nota: El mapa procesa las direcciones en tiempo real. Si tenés muchos contactos, lo ideal sería guardar Latitud y Longitud en el Excel para que sea instantáneo.")
