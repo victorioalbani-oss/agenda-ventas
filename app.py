@@ -1194,38 +1194,6 @@ elif opcion == "Diseño":
             url_carpeta = f"https://drive.google.com/drive/folders/{id_subcarpeta}"
             st.link_button("📂 Abrir carpeta completa en Google Drive", url_carpeta, use_container_width=True)
 
-# --- MÓDULO MAPA ACTUALIZADO ---
-elif opcion == "Google Maps":
-    st.header("🌎 Mapa de Empresas")
-    
-    # 1. Asegúrate de que el ID sea el correcto. 
-    # Si tu link termina en /embed?mid=... CAMBIALO a /viewer?mid=...
-    URL_BASE = "https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" # <--- PEGA TU LINK ACÁ
-    
-    # Forzamos que sea la versión 'viewer' para que aparezca la lupa
-    URL_VIEWER = URL_BASE.replace("embed", "viewer")
-    
-    # Botón para salir a la App
-    st.link_button("📱 Abrir en App Google Maps", URL_VIEWER, use_container_width=True)
-
-    try:
-        # Usamos un truco de estilo para que el mapa se adapte mejor
-        st.components.v1.html(
-            f"""
-            <div style="border:2px solid #4A90E2; border-radius:15px; overflow:hidden;">
-                <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
-                width="100%" height="800" 
-                frameborder="0"
-                allowfullscreen>
-                </iframe>
-            </div>
-            """,
-            height=820,
-        )
-    except Exception as e:
-        st.error(f"No se pudo cargar el mapa: {e}")
-
-    st.info("💡 Si no ves la lupa, fijate en la barra blanca superior del mapa, a la izquierda del título.")
 
 # --- MÓDULO MAPA ACTUALIZADO CON PESTAÑAS ---
 elif opcion == "Google Maps":
