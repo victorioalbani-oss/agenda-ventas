@@ -1213,7 +1213,7 @@ elif opcion == "Google Maps":
         st.components.v1.html(
             f"""
             <div style="border:2px solid #4A90E2; border-radius:15px; overflow:hidden;">
-                <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F&noprof=1" 
+                <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
                 width="100%" height="800" 
                 frameborder="0"
                 allowfullscreen>
