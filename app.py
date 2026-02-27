@@ -1200,7 +1200,7 @@ elif opcion == "Google Maps":
     
     # 1. Asegúrate de que el ID sea el correcto. 
     # Si tu link termina en /embed?mid=... CAMBIALO a /viewer?mid=...
-    URL_BASE = "http://googleusercontent.com/maps.google.com/8" # <--- PEGA TU LINK ACÁ
+    URL_BASE = "https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" # <--- PEGA TU LINK ACÁ
     
     # Forzamos que sea la versión 'viewer' para que aparezca la lupa
     URL_VIEWER = URL_BASE.replace("embed", "viewer")
