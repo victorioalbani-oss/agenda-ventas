@@ -1176,18 +1176,20 @@ elif opcion == "Diseño":
                 st.info("La carpeta está vacía.")
             else:
                 for f in files:
-                    # Usamos solo 2 columnas ahora: Icono y Nombre/Link
-                    c1, c2 = st.columns([1, 5]) 
+                    # Ajustamos las columnas para que la imagen tenga más protagonismo [1, 2]
+                    c1, c2 = st.columns([1, 2]) 
                     with c1:
                         if f.get('thumbnailLink'): 
-                            st.image(f['thumbnailLink'], width=70)
+                            # Aumentamos el ancho a 300 y usamos el ancho del contenedor
+                            st.image(f['thumbnailLink'], width=300, use_container_width=True)
                         else: 
-                            st.write("📄")
+                            st.write("📄 **Sin vista previa disponible**")
                     with c2:
-                        st.markdown(f"**{f['name']}**")
-                        st.link_button("👁️ Ver / Descargar", f['webViewLink'])
+                        st.write("##") # Espaciador para centrar un poco el texto
+                        st.markdown(f"### {f['name']}")
+                        st.link_button("👁️ Ver / Descargar en pantalla completa", f['webViewLink'], use_container_width=True)
+                    st.write("---")
             
-            st.write("---")
-            # Agregamos un botón útil para abrir la carpeta completa en Drive por si querés gestionar algo manual
+            # Botón para abrir la carpeta completa
             url_carpeta = f"https://drive.google.com/drive/folders/{id_subcarpeta}"
-            st.link_button("📂 Abrir carpeta en Google Drive", url_carpeta)
+            st.link_button("📂 Abrir carpeta completa en Google Drive", url_carpeta, use_container_width=True)
