@@ -1194,31 +1194,35 @@ elif opcion == "Diseño":
             url_carpeta = f"https://drive.google.com/drive/folders/{id_subcarpeta}"
             st.link_button("📂 Abrir carpeta completa en Google Drive", url_carpeta, use_container_width=True)
 
-# --- MÓDULO MAPA CON AUTO-GUARDADO ---
+# --- MÓDULO MAPA ACTUALIZADO ---
 elif opcion == "Google Maps":
-    st.header("🌎 Mi Mapa Personalizado de Empresas")
+    st.header("🌎 Mapa de Empresas")
     
-    # 1. PEGA AQUÍ EL LINK QUE COPIASTE DEL "IFRAME"
-    # Debe verse parecido a este ejemplo:
-    URL_MI_MAPA = "https://www.google.com/maps/d/u/0/edit?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&usp=sharing" 
+    # Aseguramos que el link sea el de /embed
+    URL_MI_MAPA = "http://googleusercontent.com/maps.google.com/7" 
+    
+    # Creamos un botón para abrir en la App de Google Maps o pestaña nueva
+    # Cambiamos /embed por /viewer para que sea más compatible con móviles
+    URL_APP = URL_MI_MAPA.replace("embed", "viewer")
+    
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.write("Usa la lupa 🔍 dentro del mapa para buscar empresas.")
+    with col2:
+        st.link_button("📱 Abrir en Maps", URL_APP)
 
-    if "TU_ID_DE_MAPA" in URL_MI_MAPA:
-        st.warning("⚠️ Todavía no pegaste el link de tu mapa en el código.")
-        st.info("Para obtenerlo: En My Maps ve a los 3 puntitos -> 'Insertar en mi sitio' -> Copia el link dentro de src.")
-    else:
-        try:
-            # Creamos el contenedor del mapa
-            st.components.v1.html(
-                f"""
-                <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" width="640" height="480"></iframe>
-                """,
-                height=620,
-            )
-            
-            st.success("✅ Mapa cargado. Recuerda que puedes buscar empresas usando la lupa dentro del mapa.")
-            
-        except Exception as e:
-            st.error(f"No se pudo cargar el mapa: {e}")
+    try:
+        # Subimos el height a 800 para que se vea mucho más grande
+        st.components.v1.html(
+            f"""
+            <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1gmz5MfwRKhXs2gYMK9mo-TfFt7g7pZ8&ehbc=2E312F" 
+            width="100%" height="800" 
+            style="border:2px solid #ccc; border-radius:15px;">
+            </iframe>
+            """,
+            height=820, # Le damos un margen extra al contenedor
+        )
+    except Exception as e:
+        st.error(f"No se pudo cargar el mapa: {e}")
 
-    st.write("---")
-    st.caption("Nota: Este mapa es una ventana a tu Google My Maps. Los cambios que hagas allá se verán aquí al recargar.")
+    st.caption("Tip: Si estás en el celular, el botón de arriba abrirá directamente la App de Google Maps.")
