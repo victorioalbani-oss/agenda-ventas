@@ -28,6 +28,7 @@ try:
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
+    # --- BUSCÁ ESTO EN TU CÓDIGO Y REEMPLAZALO COMPLETO ---
     class MockConn:
         def read(self, worksheet, **kwargs):
             # Busca la pestaña sin importar si hay espacios o mayúsculas
@@ -39,30 +40,23 @@ try:
                 st.error(f"No existe la pestaña '{worksheet}'. Tienes: {list(hojas.keys())}")
                 st.stop()
 
-        # AQUÍ ESTÁ EL ARREGLO: Definimos la función update correctamente
+        # ESTA ES LA FUNCIÓN QUE TE FALTA O TIENE OTRO NOMBRE
         def update(self, worksheet, data):
-            # CANDADO DE SEGURIDAD 1: Si la lista está vacía, NO BORRAMOS el Excel
+            # CANDADO DE SEGURIDAD: Si la lista está vacía, NO BORRAMOS el Excel
             if data is None or (isinstance(data, pd.DataFrame) and data.empty):
-                return # Salimos silenciosamente para proteger los datos
+                return 
 
-            wks = sheet.worksheet(worksheet)
-            
-            # Solo si hay datos, procedemos a limpiar y actualizar
-            wks.clear()
-            wks.update([data.columns.values.tolist()] + data.values.tolist())
+            try:
+                wks = sheet.worksheet(worksheet)
+                # Solo si hay datos, procedemos a limpiar y actualizar
+                wks.clear()
+                # Preparamos los datos: encabezados + valores
+                lista_datos = [data.columns.values.tolist()] + data.values.tolist()
+                wks.update(lista_datos)
+            except Exception as e:
+                st.error(f"Error interno en MockConn.update: {e}")
 
-        def update(self, worksheet, data):
-            # CANDADO DE SEGURIDAD 1: Si la lista está vacía, NO BORRAMOS el Excel
-            if data is None or data.empty:
-                st.error(f"🛑 Error: Se intentó sincronizar la pestaña '{worksheet}' con una lista vacía. Operación cancelada para proteger los datos.")
-                return
-
-            wks = sheet.worksheet(worksheet)
-            
-            # Solo si hay datos, procedemos a limpiar y actualizar
-            wks.clear()
-            wks.update([data.columns.values.tolist()] + data.values.tolist())
-
+    # ASEGURATE QUE ESTA LÍNEA ESTÉ JUSTO DEBAJO DE LA CLASE (dentro del mismo try)
     conn = MockConn()
 
 except Exception as e:
