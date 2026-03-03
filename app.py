@@ -12,14 +12,18 @@ st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # --- 2. CONEXIÓN MANUAL Y ROBUSTA ---
 # --- CONEXIÓN ---
+# --- 2. CONEXIÓN MANUAL Y ROBUSTA ---
 try:
     # 1. Cargamos datos de los secretos
     s = st.secrets["connections"]["gsheets"]
-    
-    # 2. Preparamos credenciales (Limpiando la llave de saltos de línea raros)
     creds_dict = dict(s)
-    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
     
+    # --- ARREGLO PARA LLAVE MULTILÍNEA (Tu caso actual) ---
+    raw_key = creds_dict["private_key"]
+    # Si la llave viene con saltos de línea reales, la limpiamos de espacios raros
+    creds_dict["private_key"] = raw_key.replace("\\n", "\n").strip()
+    
+    # 2. Preparamos credenciales
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
     
@@ -28,43 +32,31 @@ try:
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
-    # --- BUSCÁ ESTE BLOQUE Y REEMPLAZALO COMPLETO ---
     class MockConn:
         def read(self, worksheet, **kwargs):
-            # Busca la pestaña sin importar si hay espacios o mayúsculas
             hojas = {h.title.strip().lower(): h for h in sheet.worksheets()}
             target = worksheet.strip().lower()
             if target in hojas:
                 return pd.DataFrame(hojas[target].get_all_records())
             else:
-                st.error(f"No existe la pestaña '{worksheet}'. Tienes: {list(hojas.keys())}")
+                st.error(f"No existe la pestaña '{worksheet}'")
                 st.stop()
 
         def update(self, worksheet, data):
-            # 1. Verificamos que 'data' sea un DataFrame y que no esté vacío
             if data is None or not isinstance(data, pd.DataFrame) or data.empty:
-                # Si está vacío, no hacemos nada para proteger el Excel
                 return 
-
             try:
-                # 2. Intentamos conectar con la pestaña
                 wks = sheet.worksheet(worksheet)
-                
-                # 3. Limpiamos la hoja
                 wks.clear()
-                
-                # 4. Preparamos los datos (Encabezados + Valores)
-                lista_final = [data.columns.values.tolist()] + data.values.tolist()
-                
-                # 5. Mandamos la actualización a Google
-                wks.update(lista_final)
+                cuerpo = [data.columns.values.tolist()] + data.values.tolist()
+                wks.update(cuerpo)
             except Exception as e:
-                st.error(f"Error al escribir en Google Sheets: {e}")
+                st.error(f"Error en MockConn.update: {e}")
 
-    # Esta línea TIENE que estar alineada con la palabra 'class'
     conn = MockConn()
 
 except Exception as e:
+    # Este mensaje te va a decir exactamente si falla la llave u otra cosa
     st.error(f"Error de conexión: {e}")
     st.stop()
 
