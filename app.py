@@ -68,46 +68,6 @@ except Exception as e:
     st.error(f"Error de conexión: {e}")
     st.stop()
 
-# --- BLOQUE DE LOGIN ---
-def login_nube():
-    if "autenticado" not in st.session_state:
-        st.session_state.autenticado = False
-
-    if not st.session_state.autenticado:
-        st.markdown("<h1 style='text-align: center;'>🔐 Acceso a la AGENDA ALBANI</h1>", unsafe_allow_html=True)
-        with st.form("login_form"):
-            user_input = st.text_input("Usuario")
-            pass_input = st.text_input("Contraseña", type="password")
-            
-            if st.form_submit_button("Entrar", use_container_width=True):
-                try:
-                    df_creds = conn.read(worksheet="credenciales")
-                    # Normalizamos columnas del Excel a minúsculas
-                    df_creds.columns = [c.strip().lower() for c in df_creds.columns]
-                    
-                    # Verificación (comparamos todo como texto para evitar errores con números)
-                    valido = df_creds[
-                        (df_creds['usuario'].astype(str) == str(user_input)) & 
-                        (df_creds['clave'].astype(str) == str(pass_input))
-                    ]
-                    
-                    if not valido.empty:
-                        st.session_state.autenticado = True
-                        st.rerun()
-                    else:
-                        st.error("Usuario o contraseña incorrectos")
-                except Exception as e:
-                    st.error(f"Error procesando datos: {e}")
-        return False
-    return True
-
-if not login_nube():
-    st.stop()
-
-ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
-
-
-    
 # --------------------------------
 
  # --- INICIO DEL BLOQUE DE LOGIN  ---
