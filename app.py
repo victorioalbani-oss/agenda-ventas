@@ -10,35 +10,18 @@ import gspread
 # 1. Configuración de página
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
-# --- 2. CONEXIÓN DIAGNÓSTICO ---
+# --- 2. CONEXIÓN MANUAL Y ROBUSTA ---
 try:
-    # 1. Intentamos entrar a la sección gsheets
-    if "connections" not in st.secrets:
-        st.error("❌ No existe la sección [connections] en los Secrets.")
-        st.stop()
-    
-    if "gsheets" not in st.secrets["connections"]:
-        st.error(f"❌ No existe [gsheets]. Encontrado: {list(st.secrets['connections'].keys())}")
-        st.stop()
-
     s = st.secrets["connections"]["gsheets"]
     creds_dict = dict(s)
     
-    # 2. Vemos qué llaves hay adentro de gsheets
-    llaves_encontradas = list(creds_dict.keys())
+    # Procesamos la llave correctamente (buscando los \n que pusimos arriba)
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
     
-    if "private_key" not in creds_dict:
-        st.error(f"❌ ERROR: No encuentro 'private_key'.\n\nLo que sí encontré en tus Secrets es: {llaves_encontradas}")
-        st.info("Revisá si escribiste 'private-key' (con guion medio) o si hay un espacio antes de la palabra.")
-        st.stop()
-
-    # 3. Si llegó acá, la llave EXISTE. La limpiamos:
-    raw_key = creds_dict["private_key"]
-    creds_dict["private_key"] = raw_key.replace("\\n", "\n").strip()
-    
-    # 4. Conexión final
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    
+    service_drive = build('drive', 'v3', credentials=credentials)
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
@@ -53,14 +36,19 @@ try:
         def update(self, worksheet, data):
             if data is None or not isinstance(data, pd.DataFrame) or data.empty:
                 return 
-            wks = sheet.worksheet(worksheet)
-            wks.clear()
-            wks.update([data.columns.values.tolist()] + data.values.tolist())
+            try:
+                wks = sheet.worksheet(worksheet)
+                wks.clear()
+                # Encabezados + Valores
+                cuerpo = [data.columns.values.tolist()] + data.values.tolist()
+                wks.update(cuerpo)
+            except Exception as e:
+                st.error(f"Error escribiendo en {worksheet}: {e}")
 
     conn = MockConn()
 
 except Exception as e:
-    st.error(f"Error de conexión: {e}")
+    st.error(f"Error de conexión crítica: {e}")
     st.stop()
 # --------------------------------
 
