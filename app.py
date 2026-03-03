@@ -52,7 +52,7 @@ except Exception as e:
     st.stop()
 # --------------------------------
 
- # --- INICIO DEL BLOQUE DE LOGIN  ---
+# --- BLOQUE DE LOGIN REPARADO ---
 def login_nube():
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
@@ -71,13 +71,18 @@ def login_nube():
                         # Leemos la pestaña
                         df_creds = conn.read(worksheet="credenciales")
                         
-                        # Normalizamos columnas a minúsculas
+                        # Normalizamos nombres de columnas
                         df_creds.columns = [c.strip().lower() for c in df_creds.columns]
 
-                        # Verificación exacta
+                        # --- LA COMPARACIÓN QUE NO FALLA ---
+                        # Primero limpiamos lo que VOS escribís
+                        u_ingresado = str(user_input).strip()
+                        p_ingresado = str(pass_input).strip()
+
+                        # Ahora comparamos contra el Excel (sin usar .strip() en la columna)
                         valido = df_creds[
-                            (df_creds['usuario'].astype(str).strip() == str(user_input).strip()) & 
-                            (df_creds['clave'].astype(str).strip() == str(pass_input).strip())
+                            (df_creds['usuario'].astype(str) == u_ingresado) & 
+                            (df_creds['clave'].astype(str) == p_ingresado)
                         ]
                         
                         if not valido.empty:
@@ -92,8 +97,6 @@ def login_nube():
 
 if not login_nube():
     st.stop()
-
-# --- FIN DEL BLOQUE DE LOGIN ---
 
 # 3. Función para cargar TODO desde Google Sheets
 def cargar_datos_nube():
