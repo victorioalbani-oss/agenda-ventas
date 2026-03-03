@@ -132,24 +132,19 @@ def cargar_datos_nube():
 
 # 4. Función para subir datos (VERSIÓN BLINDADA)
 def sincronizar(pestaña, datos):
-    # --- EL FRENO DE MANO ---
-    # Si intentamos sincronizar 'contactos' y la lista está VACÍA, abortamos.
-    # Esto evita que un error de carga borre los 800 contactos.
-    if pestaña == "contactos" and (not datos or len(datos) == 0):
-        st.error("⚠️ BLOQUEO DE SEGURIDAD: Se intentó vaciar la base de contactos. Sincronización cancelada.")
-        return
+    # --- CANDADO DE SEGURIDAD ABSOLUTO ---
+    if pestaña == "contactos":
+        if not datos or len(datos) == 0:
+            st.error("🚨 BLOQUEO DE EMERGENCIA: La App intentó borrar todos los contactos. Sincronización cancelada para proteger tu Excel.")
+            return # ACÁ SE FRENA Y NO TOCA EL EXCEL
+        
+        if len(datos) < 10: # Si tenés cientos de contactos y de golpe hay menos de 10
+            st.error(f"🚨 BLOQUEO: Se intentaron subir solo {len(datos)} contactos. Parece un error de carga. No se guardará nada.")
+            return
 
     try:
-        # Convertimos a DataFrame para subir
+        # Solo si pasa los filtros de arriba, actualiza el Excel
         df_subir = pd.DataFrame(datos)
-        
-        # Si es una lista de seguimiento (Activos, Interesados, etc.)
-        # también verificamos que no suba algo roto
-        if "list_" in pestaña and df_subir.empty:
-             # Aquí podrías permitirlo si el usuario realmente quiere vaciar la lista,
-             # pero por ahora mejor prevenir.
-             pass
-
         conn.update(worksheet=pestaña, data=df_subir)
     except Exception as e:
         st.error(f"Error al sincronizar {pestaña}: {e}")
