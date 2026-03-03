@@ -58,6 +58,7 @@ try:
     credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
     
     service_drive = build('drive', 'v3', credentials=credentials)
+    ID_CARPETA_RAIZ = "1aES0n8PeHehOFvFnGsogQojAhe6o54y5"
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
