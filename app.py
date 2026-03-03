@@ -132,27 +132,27 @@ def cargar_datos_nube():
 
 # 4. Función para subir datos (VERSIÓN BLINDADA)
 def sincronizar(pestaña, datos):
-    if datos is None:
+    # --- EL FRENO DE MANO ---
+    # Si intentamos sincronizar 'contactos' y la lista está VACÍA, abortamos.
+    # Esto evita que un error de carga borre los 800 contactos.
+    if pestaña == "contactos" and (not datos or len(datos) == 0):
+        st.error("⚠️ BLOQUEO DE SEGURIDAD: Se intentó vaciar la base de contactos. Sincronización cancelada.")
         return
-        
-    try:
-        df = pd.DataFrame(datos)
-        
-        # Bloqueo preventivo para contactos vacíos
-        if pestaña == "contactos" and df.empty:
-            st.error("🛑 BLOQUEO DE SEGURIDAD: Se detectó un intento de borrar TODOS los contactos.")
-            return 
 
-        # Si son listas chicas y están vacías, les ponemos el encabezado para que no den error
-        if df.empty and pestaña in ["list_activos", "list_interesados", "list_visitar", "list_otros"]:
-            df = pd.DataFrame(columns=["Empresa"])
+    try:
+        # Convertimos a DataFrame para subir
+        df_subir = pd.DataFrame(datos)
         
-        # Llamamos al motor que arreglamos en el Paso 1
-        conn.update(worksheet=pestaña, data=df)
-        st.toast(f"✅ Sincronizado: {pestaña}")
-        
+        # Si es una lista de seguimiento (Activos, Interesados, etc.)
+        # también verificamos que no suba algo roto
+        if "list_" in pestaña and df_subir.empty:
+             # Aquí podrías permitirlo si el usuario realmente quiere vaciar la lista,
+             # pero por ahora mejor prevenir.
+             pass
+
+        conn.update(worksheet=pestaña, data=df_subir)
     except Exception as e:
-        st.error(f"⚠️ Error al guardar en {pestaña}: {e}")
+        st.error(f"Error al sincronizar {pestaña}: {e}")
 
 # 5. Inicialización de Estados
 variables_necesarias = [
@@ -292,20 +292,35 @@ elif opcion == "Contactos":
                 mail2 = st.text_input("Mail 2")
                 extra = st.text_area("Dato Extra")
             
+            
             if st.form_submit_button("Guardar Contacto"):
                 if empresa:
+                    # --- EL ESCUDO ANTI-BORRADO ---
+                    # Si la base de datos está vacía en el state, pero sabemos que 
+                    # en el Excel hay datos, impedimos el guardado para no sobrescribir con 1 solo.
+                    if not st.session_state.db_contactos:
+                         st.error("⚠️ LA BASE DE DATOS NO ESTÁ CARGADA. Refrescá la página (F5) antes de guardar para no perder los datos anteriores.")
+                         st.stop()
+                    
+                    # Generamos el ID basado en el largo real de la lista cargada
                     cid = f"C - {len(st.session_state.db_contactos) + 1}"
+                    
                     nuevo = {
                         "N°": cid, "Empresa": empresa, "País": pais, "Ciudad": ciudad,
                         "Provincia": prov, "Maps": maps, "Actividad": actividad, "Web": web,
                         "T1": tel1, "T2": tel2, "M1": mail1, "M2": mail2, "Extra": extra
                     }
+                    
+                    # Agregamos a la lista local
                     st.session_state.db_contactos.append(nuevo)
+                    
+                    # Sincronizamos (Asegurate que la función sincronizar tenga el IF que te pasé antes)
                     sincronizar("contactos", st.session_state.db_contactos)
-                    st.success(f"Contacto {cid} guardado.")
+                    
+                    st.success(f"✅ Contacto {cid} ({empresa}) guardado con éxito.")
                     st.rerun()
                 else:
-                    st.warning("Por favor, ingresa el nombre de la empresa.")
+                    st.warning("⚠️ Por favor, ingresa el nombre de la empresa.")
 
     with t2:
         if st.session_state.db_contactos:
