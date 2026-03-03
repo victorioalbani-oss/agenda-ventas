@@ -39,6 +39,18 @@ try:
                 st.error(f"No existe la pestaña '{worksheet}'. Tienes: {list(hojas.keys())}")
                 st.stop()
 
+        # AQUÍ ESTÁ EL ARREGLO: Definimos la función update correctamente
+        def update(self, worksheet, data):
+            # CANDADO DE SEGURIDAD 1: Si la lista está vacía, NO BORRAMOS el Excel
+            if data is None or (isinstance(data, pd.DataFrame) and data.empty):
+                return # Salimos silenciosamente para proteger los datos
+
+            wks = sheet.worksheet(worksheet)
+            
+            # Solo si hay datos, procedemos a limpiar y actualizar
+            wks.clear()
+            wks.update([data.columns.values.tolist()] + data.values.tolist())
+
         def update(self, worksheet, data):
             # CANDADO DE SEGURIDAD 1: Si la lista está vacía, NO BORRAMOS el Excel
             if data is None or data.empty:
@@ -174,31 +186,26 @@ def cargar_datos_nube():
             # Si falla cobros, iniciamos diccionario vacío, sino lista vacía
             st.session_state[sesion] = {} if hoja == "cobros" else []
 
-# 4. Función para subir datos (VERSIÓN BLINDADA ANTI-BORRADO)
+# 4. Función para subir datos (VERSIÓN BLINDADA)
 def sincronizar(pestaña, datos):
-    # Si los datos son None, no hacemos nada
     if datos is None:
         return
         
     try:
-        # Convertimos a DataFrame para procesar
         df = pd.DataFrame(datos)
         
-        # --- EL CANDADO DE SEGURIDAD MÁXIMA ---
-        # Si la pestaña es 'contactos' y la lista viene vacía, ABORTAMOS.
-        # Esto evita que un error de carga de una cuenta borre los 800 pines.
+        # Bloqueo preventivo para contactos vacíos
         if pestaña == "contactos" and df.empty:
-            st.error("🛑 BLOQUEO DE SEGURIDAD: Se detectó un intento de borrar TODOS los contactos. Operación cancelada para proteger tu base de datos.")
-            return # <--- Aquí se frena y no toca el Google Sheets
+            st.error("🛑 BLOQUEO DE SEGURIDAD: Se detectó un intento de borrar TODOS los contactos.")
+            return 
 
-        # --- MANEJO DE LAS 4 LISTAS ESPECIALES ---
-        # Si son las listas de seguimiento y están vacías, mantenemos el encabezado 'Empresa'
+        # Si son listas chicas y están vacías, les ponemos el encabezado para que no den error
         if df.empty and pestaña in ["list_activos", "list_interesados", "list_visitar", "list_otros"]:
             df = pd.DataFrame(columns=["Empresa"])
         
-        # Si llegamos acá, es seguro actualizar el Sheets
+        # Llamamos al motor que arreglamos en el Paso 1
         conn.update(worksheet=pestaña, data=df)
-        st.toast(f"✅ Sincronizado en Nube: {pestaña}")
+        st.toast(f"✅ Sincronizado: {pestaña}")
         
     except Exception as e:
         st.error(f"⚠️ Error al guardar en {pestaña}: {e}")
