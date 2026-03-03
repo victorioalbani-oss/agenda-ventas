@@ -11,11 +11,47 @@ import gspread
 st.set_page_config(page_title="Vico S.A.", page_icon="🌎", layout="wide")
 
 # --- 2. CONEXIÓN MANUAL Y ROBUSTA ---
+class MockConn:
+    def __init__(self, sheet_obj):
+        self.sheet = sheet_obj
+
+    def read(self, worksheet, **kwargs):
+        try:
+            hojas = {h.title.strip().lower(): h for h in self.sheet.worksheets()}
+            target = worksheet.strip().lower()
+            if target in hojas:
+                return pd.DataFrame(hojas[target].get_all_records())
+            return pd.DataFrame()
+        except Exception:
+            return pd.DataFrame()
+
+    def update(self, worksheet, data):
+        # --- EL CANDADO DEFINITIVO DE SEGURIDAD ---
+        if data is None or not isinstance(data, pd.DataFrame) or data.empty:
+            return 
+        
+        # Si es la pestaña contactos y vienen menos de 10, BLOQUEAMOS
+        if worksheet == "contactos" and len(data) < 10:
+            st.error(f"🚨 BLOQUEO: Se intentó pisar el Excel con solo {len(data)} contactos. Operación cancelada.")
+            return
+
+        try:
+            wks = self.sheet.worksheet(worksheet)
+            # Preparamos encabezados y valores
+            cuerpo = [data.columns.values.tolist()] + data.values.tolist()
+            
+            # Limpiamos y escribimos en un solo paso seguro
+            wks.clear() 
+            wks.update(cuerpo)
+        except Exception as e:
+            st.error(f"Error escribiendo en {worksheet}: {e}")
+
+# --- 3. CONEXIÓN MANUAL A GOOGLE SHEETS ---
 try:
     s = st.secrets["connections"]["gsheets"]
     creds_dict = dict(s)
     
-    # Procesamos la llave correctamente (buscando los \n que pusimos arriba)
+    # Procesamos la llave correctamente
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n").strip()
     
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -25,27 +61,8 @@ try:
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
-    def update(self, worksheet, data):
-            # Si los datos vienen vacíos o no es un DataFrame, NO HACEMOS NADA
-            if data is None or not isinstance(data, pd.DataFrame) or data.empty:
-                return 
-            
-            # Si es la pestaña contactos y tiene muy pocos datos, abortamos por seguridad
-            if worksheet == "contactos" and len(data) < 10:
-                return
-
-            try:
-                wks = sheet.worksheet(worksheet)
-                # Encabezados + Valores
-                cuerpo = [data.columns.values.tolist()] + data.values.tolist()
-                
-                # REEMPLAZO SEGURO: Limpia y escribe en una sola operación si es posible
-                wks.clear() 
-                wks.update(cuerpo)
-            except Exception as e:
-                st.error(f"Error escribiendo en {worksheet}: {e}")
-
-    conn = MockConn()
+    # IMPORTANTE: Aquí creamos el objeto conn usando la clase de arriba
+    conn = MockConn(sheet)
 
 except Exception as e:
     st.error(f"Error de conexión crítica: {e}")
