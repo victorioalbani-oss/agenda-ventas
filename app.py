@@ -25,22 +25,22 @@ try:
     client_sheets = gspread.authorize(credentials)
     sheet = client_sheets.open_by_url(s["spreadsheet"])
     
-    class MockConn:
-        def read(self, worksheet, **kwargs):
-            hojas = {h.title.strip().lower(): h for h in sheet.worksheets()}
-            target = worksheet.strip().lower()
-            if target in hojas:
-                return pd.DataFrame(hojas[target].get_all_records())
-            return pd.DataFrame()
-
-        def update(self, worksheet, data):
+    def update(self, worksheet, data):
+            # Si los datos vienen vacíos o no es un DataFrame, NO HACEMOS NADA
             if data is None or not isinstance(data, pd.DataFrame) or data.empty:
                 return 
+            
+            # Si es la pestaña contactos y tiene muy pocos datos, abortamos por seguridad
+            if worksheet == "contactos" and len(data) < 10:
+                return
+
             try:
                 wks = sheet.worksheet(worksheet)
-                wks.clear()
                 # Encabezados + Valores
                 cuerpo = [data.columns.values.tolist()] + data.values.tolist()
+                
+                # REEMPLAZO SEGURO: Limpia y escribe en una sola operación si es posible
+                wks.clear() 
                 wks.update(cuerpo)
             except Exception as e:
                 st.error(f"Error escribiendo en {worksheet}: {e}")
@@ -126,28 +126,28 @@ def cargar_datos_nube():
                 st.session_state[sesion] = [item['Empresa'] for item in datos if 'Empresa' in item]
             else:
                 st.session_state[sesion] = datos
-        except Exception:
-            # Si falla cobros, iniciamos diccionario vacío, sino lista vacía
-            st.session_state[sesion] = {} if hoja == "cobros" else []
+        except Exception as e:
+            # Si falla la carga, NO sobreescribimos con una lista vacía si ya había datos
+            if sesion not in st.session_state:
+                st.session_state[sesion] = {} if hoja == "cobros" else []
+            st.error(f"⚠️ No se pudo actualizar {hoja} desde la nube. Usando datos en memoria.")
 
 # 4. Función para subir datos (VERSIÓN BLINDADA)
 def sincronizar(pestaña, datos):
-    # --- CANDADO DE SEGURIDAD ABSOLUTO ---
+    # --- MURO DE HORMIGÓN ---
     if pestaña == "contactos":
-        if not datos or len(datos) == 0:
-            st.error("🚨 BLOQUEO DE EMERGENCIA: La App intentó borrar todos los contactos. Sincronización cancelada para proteger tu Excel.")
-            return # ACÁ SE FRENA Y NO TOCA EL EXCEL
-        
-        if len(datos) < 10: # Si tenés cientos de contactos y de golpe hay menos de 10
-            st.error(f"🚨 BLOQUEO: Se intentaron subir solo {len(datos)} contactos. Parece un error de carga. No se guardará nada.")
-            return
+        # Si la App intenta mandar una lista vacía o casi vacía, la frenamos en seco
+        if not datos or len(datos) < 10: 
+            st.error(f"🚨 BLOQUEO DE SEGURIDAD: Se intentó subir solo {len(datos) if datos else 0} contactos. Sincronización abortada para evitar pérdida de datos.")
+            return # Detiene la ejecución aquí, el Excel no se toca
 
     try:
-        # Solo si pasa los filtros de arriba, actualiza el Excel
         df_subir = pd.DataFrame(datos)
+        # Limpiamos nulos para que no rompa la subida
+        df_subir = df_subir.fillna("")
         conn.update(worksheet=pestaña, data=df_subir)
     except Exception as e:
-        st.error(f"Error al sincronizar {pestaña}: {e}")
+        st.error(f"Error técnico al sincronizar {pestaña}: {e}")
 
 # 5. Inicialización de Estados
 variables_necesarias = [
@@ -394,16 +394,14 @@ elif opcion == "Contactos":
                     new_extra = st.text_area("Notas / Extra", value=str(c.get('Extra','')).replace("'", ""))
                 
                 if st.form_submit_button("Guardar Cambios"):
-                    # --- ESCUDO DE SEGURIDAD PARA EDICIÓN ---
-                    # Verificamos que la base no se haya "vaciado" en memoria antes de pisar el Excel
-                    if not st.session_state.db_contactos or len(st.session_state.db_contactos) < 10: 
-                        # Puse < 10 porque si tenés 800, que de golpe haya menos de 10 es señal de error
-                        st.error("⚠️ ERROR CRÍTICO: La base de datos no parece estar cargada correctamente. No se puede guardar para evitar pérdida de datos. Refrescá la página (F5).")
+                    # 1. VALIDACIÓN DE SEGURIDAD (Muro de Hormigón)
+                    if not st.session_state.db_contactos or len(st.session_state.db_contactos) < 10:
+                        st.error("🚨 ERROR: No se detectan contactos cargados. Refrescá con F5 antes de guardar.")
                         st.stop()
-
-                    # Si está todo bien, procedemos a actualizar el contacto en la lista
-                    st.session_state.db_contactos[idx] = {
-                        "N°": c['N°'], 
+                    
+                    # 2. SEGURO DE ID: Usamos el ID que ya tenía el contacto 'c'
+                    contacto_actualizado = {
+                        "N°": c.get('N°', f"C - {idx+1}"), # <--- Usar el que ya existe
                         "Empresa": new_nom, 
                         "País": new_pais, 
                         "Ciudad": new_ciudad,
@@ -418,7 +416,7 @@ elif opcion == "Contactos":
                         "Extra": f"'{new_extra}" 
                     }
                     
-                    # Sincronizamos la lista completa (que ahora sabemos que está sana)
+                    st.session_state.db_contactos[idx] = contacto_actualizado
                     sincronizar("contactos", st.session_state.db_contactos)
                     
                     st.success(f"✅ ¡{new_nom} actualizado correctamente!")
@@ -429,7 +427,7 @@ elif opcion == "Contactos":
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
-        # 1. BLOQUE DE AÑADIR (Se mantiene igual)
+        # 1. BLOQUE DE AÑADIR
         if st.session_state.db_contactos:
             nombres_totales = sorted([c['Empresa'] for c in st.session_state.db_contactos])
             with st.container():
@@ -443,7 +441,10 @@ elif opcion == "Contactos":
                 with col_btn:
                     st.write("##")
                     if st.button("➕", key=f"add_btn_{lista_key}"):
-                        if emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
+                        ### ESCUDO: Solo añadimos si la base de datos local está sana
+                        if not st.session_state.db_contactos:
+                            st.error("Error: No hay contactos cargados.")
+                        elif emp_a_agregar and emp_a_agregar not in st.session_state[lista_key]:
                             st.session_state[lista_key].append(emp_a_agregar)
                             df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
                             sincronizar(lista_key, df_p.to_dict('records'))
@@ -459,10 +460,8 @@ elif opcion == "Contactos":
             
             df_en_lista = df_contactos[df_contactos['Empresa'].isin(lista_nombres)].copy()
 
-            # --- BUSCADOR INTERNO DE LA LISTA (Ajustado con Empresa) ---
+            # --- BUSCADOR INTERNO ---
             st.caption(f"🔍 Filtrar dentro de {titulo}:")
-            
-            # Agregamos el buscador de Empresa arriba o en una fila nueva
             f_emp_search = st.selectbox("🏢 Buscar Empresa específica", ["Todas"] + sorted(df_en_lista["Empresa"].unique().tolist()), key=f"f_emp_{lista_key}")
             
             c_f1, c_f2, c_f3, c_f4 = st.columns(4)
@@ -475,9 +474,8 @@ elif opcion == "Contactos":
             with c_f4:
                 f_ciu = st.text_input("🏙️ Ciudad", key=f"f_ciu_{lista_key}", placeholder="Buscar...")
 
-            # Aplicamos los filtros
             df_final = df_en_lista.copy()
-            if f_emp_search != "Todas": df_final = df_final[df_final["Empresa"] == f_emp_search] # <-- El nuevo filtro
+            if f_emp_search != "Todas": df_final = df_final[df_final["Empresa"] == f_emp_search]
             if f_act != "Todas": df_final = df_final[df_final["Actividad"] == f_act]
             if f_pais != "Todos": df_final = df_final[df_final["País"] == f_pais]
             if f_prov != "Todas": df_final = df_final[df_final["Provincia"] == f_prov]
@@ -485,7 +483,7 @@ elif opcion == "Contactos":
 
             st.write(f"📊 **{len(df_final)}** empresas encontradas")
 
-            # 3. RENDERIZADO DE LOS EXPANDERS (Se mantiene igual)
+            # 3. RENDERIZADO DE LOS EXPANDERS
             df_final = df_final.sort_values(by=['País', 'Provincia', 'Ciudad'])
 
             for i, row in df_final.iterrows():
@@ -505,9 +503,20 @@ elif opcion == "Contactos":
                             df_view_bit = df_bit_emp[["Fecha", col_g]].sort_index(ascending=False).head(3)
                             st.dataframe(df_view_bit, use_container_width=True, hide_index=True)
                     
+                    ### ESTE ES EL BOTÓN QUE TE DECÍA:
                     if st.button(f"Quitar de {titulo}", key=f"del_{llave_unica}"):
+                        ### ESCUDO DE SEGURIDAD:
+                        # Si por error de carga la lista en memoria tiene menos elementos de los que debería,
+                        # bloqueamos el borrado para no "limpiar" el Excel.
+                        if len(st.session_state[lista_key]) < 1:
+                             st.error("Error de carga: La lista ya parece estar vacía.")
+                             st.stop()
+                        
+                        # Si pasa el escudo, borramos
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
+                        
+                        # Solo sincronizamos si queda algo, o mandamos una lista con un aviso
                         sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
         else:
