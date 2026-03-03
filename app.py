@@ -399,23 +399,34 @@ elif opcion == "Contactos":
                     new_extra = st.text_area("Notas / Extra", value=str(c.get('Extra','')).replace("'", ""))
                 
                 if st.form_submit_button("Guardar Cambios"):
+                    # --- ESCUDO DE SEGURIDAD PARA EDICIÓN ---
+                    # Verificamos que la base no se haya "vaciado" en memoria antes de pisar el Excel
+                    if not st.session_state.db_contactos or len(st.session_state.db_contactos) < 10: 
+                        # Puse < 10 porque si tenés 800, que de golpe haya menos de 10 es señal de error
+                        st.error("⚠️ ERROR CRÍTICO: La base de datos no parece estar cargada correctamente. No se puede guardar para evitar pérdida de datos. Refrescá la página (F5).")
+                        st.stop()
+
+                    # Si está todo bien, procedemos a actualizar el contacto en la lista
                     st.session_state.db_contactos[idx] = {
                         "N°": c['N°'], 
                         "Empresa": new_nom, 
                         "País": new_pais, 
                         "Ciudad": new_ciudad,
-                        "Provincia": new_prov, # Guardado correctamente
+                        "Provincia": new_prov,
                         "Maps": new_maps, 
                         "Actividad": new_act, 
                         "Web": new_web, 
-                        "T1": f"'{new_tel1}", # Seguro de Excel
-                        "T2": f"'{new_tel2}", # Seguro de Excel
+                        "T1": f"'{new_tel1}", # El ' evita que Excel rompa los números largos
+                        "T2": f"'{new_tel2}", 
                         "M1": new_mail1, 
                         "M2": new_mail2, 
-                        "Extra": f"'{new_extra}" # Seguro de Excel
+                        "Extra": f"'{new_extra}" 
                     }
+                    
+                    # Sincronizamos la lista completa (que ahora sabemos que está sana)
                     sincronizar("contactos", st.session_state.db_contactos)
-                    st.success("✅ ¡Vico S.A. actualizado correctamente!")
+                    
+                    st.success(f"✅ ¡{new_nom} actualizado correctamente!")
                     st.rerun()
 
     # --- FUNCION DE LISTAS CON FILTROS AVANZADOS Y BITÁCORA ---
