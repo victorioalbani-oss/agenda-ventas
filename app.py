@@ -441,7 +441,6 @@ elif opcion == "Contactos":
                     st.rerun()
 
     # --- FUNCION DE LISTAS CON FILTROS AVANZADOS Y BITÁCORA ---
-    # --- FUNCION DE LISTAS CON FILTROS AVANZADOS Y BITÁCORA ---
     def render_lista_seguimiento(titulo, lista_key):
         st.subheader(titulo)
         
@@ -510,8 +509,26 @@ elif opcion == "Contactos":
                 llave_unica = f"item_{lista_key}_{emp_nombre}_{i}"
                 
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
+                    # --- SECCIÓN 1: ACTIVIDAD ---
                     st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
                     
+                    # --- SECCIÓN 2: DATOS DE CONTACTO (NUEVO) ---
+                    st.markdown("---")
+                    st.caption("📞 Información de Contacto:")
+                    col_info1, col_info2 = st.columns(2)
+                    
+                    with col_info1:
+                        if row.get('T1'): st.write(f"📞 **Tel 1:** {str(row['T1']).replace("'", "")}")
+                        if row.get('T2'): st.write(f"📞 **Tel 2:** {str(row['T2']).replace("'", "")}")
+                        if row.get('Web'): st.write(f"🌐 [Ver Web]({row['Web']})")
+                        if row.get('Maps'): st.write(f"📍 [Ver en Google Maps]({row['Maps']})")
+                    
+                    with col_info2:
+                        if row.get('M1'): st.write(f"✉️ **Mail 1:** {row['M1']}")
+                        if row.get('M2'): st.write(f"✉️ **Mail 2:** {row['M2']}")
+                        if row.get('Extra'): st.info(f"💡 **Extra:** {str(row['Extra']).replace("'", "")}")
+
+                    # --- SECCIÓN 3: BITÁCORA (LO QUE YA TENÍAS) ---
                     if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
                         df_bit_emp = df_bit_all[df_bit_all['Empresa'] == emp_nombre].copy()
                         if not df_bit_emp.empty:
@@ -521,20 +538,14 @@ elif opcion == "Contactos":
                             df_view_bit = df_bit_emp[["Fecha", col_g]].sort_index(ascending=False).head(3)
                             st.dataframe(df_view_bit, use_container_width=True, hide_index=True)
                     
-                    ### ESTE ES EL BOTÓN QUE TE DECÍA:
+                    st.write("##") # Espacio para el botón
+                    # --- EL BOTÓN DE QUITAR (SE MANTIENE IGUAL) ---
                     if st.button(f"Quitar de {titulo}", key=f"del_{llave_unica}"):
-                        ### ESCUDO DE SEGURIDAD:
-                        # Si por error de carga la lista en memoria tiene menos elementos de los que debería,
-                        # bloqueamos el borrado para no "limpiar" el Excel.
                         if len(st.session_state[lista_key]) < 1:
                              st.error("Error de carga: La lista ya parece estar vacía.")
                              st.stop()
-                        
-                        # Si pasa el escudo, borramos
                         st.session_state[lista_key].remove(emp_nombre)
                         df_p = pd.DataFrame(st.session_state[lista_key], columns=["Empresa"])
-                        
-                        # Solo sincronizamos si queda algo, o mandamos una lista con un aviso
                         sincronizar(lista_key, df_p.to_dict('records'))
                         st.rerun()
         else:
