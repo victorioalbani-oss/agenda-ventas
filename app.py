@@ -509,26 +509,44 @@ elif opcion == "Contactos":
                 llave_unica = f"item_{lista_key}_{emp_nombre}_{i}"
                 
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
-                    # --- SECCIÓN 1: ACTIVIDAD ---
-                    st.write(f"**Actividad:** {row.get('Actividad', 'S/D')}")
-                    
-                    # --- SECCIÓN 2: DATOS DE CONTACTO (NUEVO) ---
+                                       
+                    # --- SECCIÓN 1: DATOS DE CONTACTO (NUEVO) ---
                     st.markdown("---")
                     st.caption("📞 Información de Contacto:")
                     col_info1, col_info2 = st.columns(2)
                     
                     with col_info1:
-                        if row.get('T1'): st.write(f"📞 **Tel 1:** {str(row['T1']).replace("'", "")}")
-                        if row.get('T2'): st.write(f"📞 **Tel 2:** {str(row['T2']).replace("'", "")}")
-                        if row.get('Web'): st.write(f"🌐 [Ver Web]({row['Web']})")
-                        if row.get('Maps'): st.write(f"📍 [Ver en Google Maps]({row['Maps']})")
+                        # Actividad como un campo más
+                        if row.get('Actividad'):
+                            act_limpia = str(row['Actividad']).replace("'", "")
+                            st.write(f"🛠️ **Actividad:** {act_limpia}")
+                        
+                        if row.get('T1'): 
+                            t1_limpio = str(row['T1']).replace("'", "")
+                            st.write(f"📞 **Tel 1:** {t1_limpio}")
+                        
+                        if row.get('T2'): 
+                            t2_limpio = str(row['T2']).replace("'", "")
+                            st.write(f"📞 **Tel 2:** {t2_limpio}")
+                        
+                        if row.get('Web'): 
+                            st.write(f"🌐 [Ver Web]({row['Web']})")
                     
                     with col_info2:
-                        if row.get('M1'): st.write(f"✉️ **Mail 1:** {row['M1']}")
-                        if row.get('M2'): st.write(f"✉️ **Mail 2:** {row['M2']}")
-                        if row.get('Extra'): st.info(f"💡 **Extra:** {str(row['Extra']).replace("'", "")}")
+                        if row.get('M1'): 
+                            st.write(f"✉️ **Mail 1:** {row['M1']}")
+                        
+                        if row.get('M2'): 
+                            st.write(f"✉️ **Mail 2:** {row['M2']}")
+                        
+                        if row.get('Maps'): 
+                            st.write(f"📍 [Ver en Google Maps]({row['Maps']})")
+                        
+                        if row.get('Extra'): 
+                            extra_limpio = str(row['Extra']).replace("'", "")
+                            st.write(f"💡 **Extra:** {extra_limpio}")
 
-                    # --- SECCIÓN 3: BITÁCORA (LO QUE YA TENÍAS) ---
+                    # --- SECCIÓN 2: BITÁCORA (LO QUE YA TENÍAS) ---
                     if not df_bit_all.empty and 'Empresa' in df_bit_all.columns:
                         df_bit_emp = df_bit_all[df_bit_all['Empresa'] == emp_nombre].copy()
                         if not df_bit_emp.empty:
