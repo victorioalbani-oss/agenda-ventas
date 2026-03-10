@@ -511,7 +511,6 @@ elif opcion == "Contactos":
                 with st.expander(f"🏢 {emp_nombre} | 🌎 {ubicacion}", expanded=False):
                                        
                     # --- SECCIÓN 1: DATOS DE CONTACTO (NUEVO) ---
-                    st.markdown("---")
                     st.caption("📞 Información de Contacto:")
                     col_info1, col_info2 = st.columns(2)
                     
@@ -556,7 +555,6 @@ elif opcion == "Contactos":
                             df_view_bit = df_bit_emp[["Fecha", col_g]].sort_index(ascending=False).head(3)
                             st.dataframe(df_view_bit, use_container_width=True, hide_index=True)
                     
-                    st.write("##") # Espacio para el botón
                     # --- EL BOTÓN DE QUITAR (SE MANTIENE IGUAL) ---
                     if st.button(f"Quitar de {titulo}", key=f"del_{llave_unica}"):
                         if len(st.session_state[lista_key]) < 1:
