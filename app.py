@@ -848,21 +848,42 @@ elif opcion == "Bitácora":
                     (df_mostrar["Fecha_DT"].dt.date >= f_inicio) & 
                     (df_mostrar["Fecha_DT"].dt.date <= f_fin)
                 ]
-            
-            # --- VISUALIZACIÓN ---
-            
+                                  
+            # --- VISUALIZACIÓN AGRUPADA (NUEVA LÓGICA) ---
             if not df_mostrar.empty:
-                for i, fila in df_mostrar.iterrows():
-                    fecha_str = fila['Fecha']
-                    empresa_str = fila['Empresa']
-                    gestion_resumen = fila['Gestion'][:60] + "..." if len(fila['Gestion']) > 60 else fila['Gestion']
-                    
-                    with st.expander(f"📅 {fecha_str} | 🏢 **{empresa_str}** | 📝 {gestion_resumen}"):
-                        st.markdown(f"**Empresa:** {empresa_str}")
-                        st.markdown(f"**Fecha:** {fecha_str}")
-                        st.info(fila['Gestion'])
-                        if fila['Recordatorio'] not in ["Sin aviso", "Realizado"]:
-                            st.write(f"🔔 **Próximo aviso:** {fila['Recordatorio']}")
+                # 1. Creamos columnas auxiliares para agrupar
+                df_mostrar['Año'] = df_mostrar['Fecha_DT'].dt.year
+                df_mostrar['Mes_Num'] = df_mostrar['Fecha_DT'].dt.month
+                df_mostrar['Día_Nombre'] = df_mostrar['Fecha_DT'].dt.strftime('%A') # Nombre del día
+                df_mostrar['Día_Num'] = df_mostrar['Fecha_DT'].dt.day
+
+                # Diccionario para traducir días (opcional pero queda prolijo)
+                dias_es = {"Monday":"Lunes", "Tuesday":"Martes", "Wednesday":"Miércoles", 
+                           "Thursday":"Jueves", "Friday":"Viernes", "Saturday":"Sábado", "Sunday":"Domingo"}
+
+                # 2. Empezamos a recorrer por Mes/Año
+                for (anio, mes_n), grupo_mes in df_mostrar.groupby(['Año', 'Mes_Num'], sort=False):
+                    nombre_mes = dic_meses.get(mes_n, "S/D")
+                    st.markdown(f"### 📅 {nombre_mes} {anio}") # TÍTULO DEL MES
+                    st.write("---")
+
+                    # 3. Recorremos por Día dentro de ese mes
+                    for dia_n, grupo_dia in grupo_mes.groupby('Día_Num', sort=False):
+                        dia_txt = dias_es.get(grupo_dia['Día_Nombre'].iloc[0], grupo_dia['Día_Nombre'].iloc[0])
+                        
+                        # Subtítulo del Día (con estilo de badge)
+                        st.markdown(f"📍 **{dia_txt} {dia_n}**")
+                        
+                        # 4. Mostramos las gestiones de ese día
+                        for i, fila in grupo_dia.iterrows():
+                            empresa_str = fila['Empresa']
+                            # Un mini expander para no ocupar tanto espacio vertical
+                            with st.expander(f"🏢 {empresa_str} | {fila['Gestion'][:40]}..."):
+                                st.write(f"**Detalle:** {fila['Gestion']}")
+                                if fila['Recordatorio'] not in ["Sin aviso", "Realizado"]:
+                                    st.caption(f"🔔 Recordatorio para el: {fila['Recordatorio']}")
+                        
+                        st.write("") # Espacio entre días
             else:
                 st.warning("No hay registros para los filtros seleccionados.")
                         
