@@ -876,56 +876,59 @@ elif opcion == "Bitácora":
             st.info("Todavía no hay nada cargado en la bitácora.")
                 
     with tab_alertas:
-        st.subheader("🔔 Pendientes de Seguimiento")
+        st.subheader("📅 Agenda de Seguimiento")
         if st.session_state.db_bitacora:
             df_b = pd.DataFrame(st.session_state.db_bitacora)
             
             if "Recordatorio" in df_b.columns:
-                # 1. Filtramos los que tienen fecha de aviso y no están realizados
+                # 1. Filtramos avisos activos
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
                 
                 if not df_alertas.empty:
-                    # Convertimos a fecha para ordenar y extraer día/mes
+                    # Convertimos y preparamos columnas de tiempo
                     df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
                     df_alertas = df_alertas.sort_values("F_REC")
-
-                    # Variables auxiliares para el control de los títulos
-                    fecha_control = None
+                    
+                    df_alertas['Año'] = df_alertas['F_REC'].dt.year
+                    df_alertas['Mes_N'] = df_alertas['F_REC'].dt.month
+                    df_alertas['Dia_N'] = df_alertas['F_REC'].dt.day
+                    
                     dias_es = {0:"Lunes", 1:"Martes", 2:"Miércoles", 3:"Jueves", 4:"Viernes", 5:"Sábado", 6:"Domingo"}
-
-                    for idx_original, fila in df_alertas.iterrows():
-                        f = fila["F_REC"]
+                    
+                    # --- NUEVA LÓGICA DE AGRUPACIÓN JERÁRQUICA ---
+                    
+                    # A. Agrupamos por Año y Mes
+                    for (anio, mes_n), grupo_mes in df_alertas.groupby(['Año', 'Mes_N'], sort=False):
+                        nombre_mes = dic_meses.get(mes_n, "S/D").upper()
+                        st.markdown(f"## 🗓️ {nombre_mes} {anio}") # Título Grande del Mes
+                        st.write("---")
                         
-                        # 2. ENCABEZADO DE DÍA (Solo aparece cuando cambia el día)
-                        # Comparamos solo la fecha (año-mes-día) para saber si poner título nuevo
-                        fecha_check = f.strftime('%Y-%m-%d')
-                        if fecha_check != fecha_control:
-                            nombre_dia = dias_es.get(f.weekday())
-                            st.markdown(f"### 📅 {nombre_dia} {f.day}")
-                            fecha_control = fecha_check
-
-                        # 3. TARJETA DE RECORDATORIO
-                        vencido = f.date() <= datetime.now().date()
-                        # Color del indicador según el estado
-                        estado = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
-                        
-                        with st.container(border=True):
-                            col_txt, col_btn = st.columns([0.8, 0.2])
-                            with col_txt:
-                                # Título de la tarjeta: Estado + Empresa (Limpio de fechas largas)
-                                st.markdown(f"**{estado} | {fila['Empresa']}**")
-                                st.info(f"👉 **Gestión previa:** {fila['Gestion']}")
-                            with col_btn:
-                                # Botón para marcar como realizado
-                                if st.button("Quitar 🔔", key=f"btn_rec_{idx_original}"):
-                                    st.session_state.db_bitacora[idx_original]["Recordatorio"] = "Realizado"
-                                    sincronizar("bitacora", st.session_state.db_bitacora)
-                                    st.success("Hecho")
-                                    st.rerun()
+                        # B. Agrupamos por Día dentro de ese Mes
+                        for dia_n, grupo_dia in grupo_mes.groupby('Dia_N', sort=False):
+                            f_ejemplo = grupo_dia['F_REC'].iloc[0]
+                            nombre_dia = dias_es.get(f_ejemplo.weekday())
+                            
+                            st.info(f"📍 **{nombre_dia} {dia_n}**") # Franja del Día
+                            
+                            # C. Mostramos las tarjetas de ese día específico
+                            for idx_original, fila in grupo_dia.iterrows():
+                                vencido = fila["F_REC"].date() <= datetime.now().date()
+                                estado = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
+                                
+                                with st.container(border=True):
+                                    c1, c2 = st.columns([0.8, 0.2])
+                                    with c1:
+                                        st.markdown(f"**{estado} | {fila['Empresa']}**")
+                                        st.write(f"👉 {fila['Gestion']}")
+                                    with c2:
+                                        if st.button("Hecho ✅", key=f"btn_rec_{idx_original}"):
+                                            st.session_state.db_bitacora[idx_original]["Recordatorio"] = "Realizado"
+                                            sincronizar("bitacora", st.session_state.db_bitacora)
+                                            st.rerun()
                 else:
-                    st.info("No hay avisos pendientes.")
+                    st.info("No hay recordatorios pendientes.")
         else:
-            st.info("La bitácora está vacía.")
+            st.info("Bitácora vacía.")
                     
 # --- MÓDULO COBROS ---
 elif opcion == "Cobros":
