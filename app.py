@@ -878,34 +878,49 @@ elif opcion == "Bitácora":
     with tab_alertas:
         st.subheader("🔔 Pendientes de Seguimiento")
         if st.session_state.db_bitacora:
-            # Convertimos a DF para filtrar pero operamos sobre la lista original para no romper nada
             df_b = pd.DataFrame(st.session_state.db_bitacora)
             
             if "Recordatorio" in df_b.columns:
-                # Filtrar solo los que tienen una fecha (contienen '-') y NO son 'Realizado'
+                # 1. Filtramos los que tienen fecha de aviso y no están realizados
                 df_alertas = df_b[df_b["Recordatorio"].astype(str).str.contains("-", na=False)].copy()
                 
                 if not df_alertas.empty:
+                    # Convertimos a fecha para ordenar y extraer día/mes
                     df_alertas["F_REC"] = pd.to_datetime(df_alertas["Recordatorio"], errors='coerce')
                     df_alertas = df_alertas.sort_values("F_REC")
 
-                    for idx_filtrado, fila in df_alertas.iterrows():
+                    # Variables auxiliares para el control de los títulos
+                    fecha_control = None
+                    dias_es = {0:"Lunes", 1:"Martes", 2:"Miércoles", 3:"Jueves", 4:"Viernes", 5:"Sábado", 6:"Domingo"}
+
+                    for idx_original, fila in df_alertas.iterrows():
                         f = fila["F_REC"]
+                        
+                        # 2. ENCABEZADO DE DÍA (Solo aparece cuando cambia el día)
+                        # Comparamos solo la fecha (año-mes-día) para saber si poner título nuevo
+                        fecha_check = f.strftime('%Y-%m-%d')
+                        if fecha_check != fecha_control:
+                            nombre_dia = dias_es.get(f.weekday())
+                            st.markdown(f"### 📅 {nombre_dia} {f.day}")
+                            fecha_control = fecha_check
+
+                        # 3. TARJETA DE RECORDATORIO
                         vencido = f.date() <= datetime.now().date()
-                        color = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
+                        # Color del indicador según el estado
+                        estado = "🔴 VENCIDO" if vencido else "⏳ Pendiente"
                         
                         with st.container(border=True):
-                            c1, c2 = st.columns([0.8, 0.2])
-                            with c1:
-                                st.markdown(f"**{color} | {f.day} de {dic_meses.get(f.month)} - {fila['Empresa']}**")
-                                st.info(f"👉 **Tarea previa:** {fila['Gestion']}")
-                            with c2:
-                                # Aquí usamos el ID original de la lista para que no falle al guardar
-                                if st.button("Quitar 🔔", key=f"q_{idx_filtrado}"):
-                                    # Modificamos el registro original en el session_state
-                                    st.session_state.db_bitacora[idx_filtrado]["Recordatorio"] = "Realizado"
+                            col_txt, col_btn = st.columns([0.8, 0.2])
+                            with col_txt:
+                                # Título de la tarjeta: Estado + Empresa (Limpio de fechas largas)
+                                st.markdown(f"**{estado} | {fila['Empresa']}**")
+                                st.info(f"👉 **Gestión previa:** {fila['Gestion']}")
+                            with col_btn:
+                                # Botón para marcar como realizado
+                                if st.button("Quitar 🔔", key=f"btn_rec_{idx_original}"):
+                                    st.session_state.db_bitacora[idx_original]["Recordatorio"] = "Realizado"
                                     sincronizar("bitacora", st.session_state.db_bitacora)
-                                    st.success("Aviso marcado como Realizado")
+                                    st.success("Hecho")
                                     st.rerun()
                 else:
                     st.info("No hay avisos pendientes.")
