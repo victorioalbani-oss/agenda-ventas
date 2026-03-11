@@ -921,7 +921,7 @@ elif opcion == "Bitácora":
                                         st.markdown(f"**{estado} | {fila['Empresa']}**")
                                         st.write(f"👉 {fila['Gestion']}")
                                     with c2:
-                                        if st.button("Hecho ✅", key=f"btn_rec_{idx_original}"):
+                                        if st.button("Quitar ✅", key=f"btn_rec_{idx_original}"):
                                             st.session_state.db_bitacora[idx_original]["Recordatorio"] = "Realizado"
                                             sincronizar("bitacora", st.session_state.db_bitacora)
                                             st.rerun()
