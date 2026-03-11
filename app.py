@@ -849,51 +849,28 @@ elif opcion == "Bitácora":
                     (df_mostrar["Fecha_DT"].dt.date <= f_fin)
                 ]
                                   
-            # --- VISUALIZACIÓN AGRUPADA (DISEÑO PREMIUM) ---
+            # --- VISUALIZACIÓN SIMPLE ---
+            dias_es = {0:"Lunes", 1:"Martes", 2:"Miércoles", 3:"Jueves", 4:"Viernes", 5:"Sábado", 6:"Domingo"}
+
             if not df_mostrar.empty:
-                # 1. Preparación de datos temporales
-                df_mostrar['Año'] = df_mostrar['Fecha_DT'].dt.year
-                df_mostrar['Mes_Num'] = df_mostrar['Fecha_DT'].dt.month
-                df_mostrar['Día_Nombre'] = df_mostrar['Fecha_DT'].dt.strftime('%A')
-                df_mostrar['Día_Num'] = df_mostrar['Fecha_DT'].dt.day
+                fecha_actual = None
 
-                dias_es = {"Monday":"Lunes", "Tuesday":"Martes", "Wednesday":"Miércoles", 
-                           "Thursday":"Jueves", "Friday":"Viernes", "Saturday":"Sábado", "Sunday":"Domingo"}
-
-                # 2. Iteración por Mes
-                for (anio, mes_n), grupo_mes in df_mostrar.groupby(['Año', 'Mes_Num'], sort=False):
-                    nombre_mes = dic_meses.get(mes_n, "S/D")
-                    st.markdown(f"## 📅 {nombre_mes} {anio}")
+                for i, fila in df_mostrar.iterrows():
+                    dt = fila['Fecha_DT']
                     
-                    # 3. Iteración por Día
-                    for dia_n, grupo_dia in grupo_mes.groupby('Día_Num', sort=False):
-                        dia_txt = dias_es.get(grupo_dia['Día_Nombre'].iloc[0], grupo_dia['Día_Nombre'].iloc[0])
-                        
-                        # Encabezado de día con separador
-                        st.write(f"#### 📍 {dia_txt} {dia_n}")
-                        
-                        # 4. Bloque de gestiones del día
-                        for i, fila in grupo_dia.iterrows():
-                            empresa_str = fila['Empresa']
-                            tiene_aviso = fila['Recordatorio'] not in ["Sin aviso", "Realizado"]
-                            icono_aviso = "🔔" if tiene_aviso else "✅"
-                            
-                            # Título del expander más descriptivo
-                            with st.expander(f"{icono_aviso} **{empresa_str}**"):
-                                # Usamos columnas para que la info interna se vea limpia
-                                c_det1, c_det2 = st.columns([0.7, 0.3])
-                                with c_det1:
-                                    st.markdown(f"**Gestión:**")
-                                    st.write(fila['Gestion'])
-                                with c_det2:
-                                    if tiene_aviso:
-                                        st.warning(f"**Recordatorio:**\n{fila['Recordatorio']}")
-                                    else:
-                                        st.success("Sin pendientes")
-                        
-                        st.markdown("---") # Línea sutil entre días
+                    # 1. Si la fecha cambia, ponemos el separador "Lunes 11"
+                    if fila['Fecha'] != fecha_actual:
+                        nombre_dia = dias_es.get(dt.weekday())
+                        st.info(f"📍 **{nombre_dia} {dt.day}**")
+                        fecha_actual = fila['Fecha']
+                    
+                    # 2. El expander con el nombre de la empresa (SIN LA FECHA LARGA)
+                    with st.expander(f"🏢 {fila['Empresa']} | {fila['Gestion'][:50]}..."):
+                        st.write(fila['Gestion'])
+                        if fila['Recordatorio'] not in ["Sin aviso", "Realizado"]:
+                            st.caption(f"🔔 Aviso: {fila['Recordatorio']}")
             else:
-                st.warning("No hay registros para los filtros seleccionados.")
+                st.warning("No hay registros.")
                         
         else:
             st.info("Todavía no hay nada cargado en la bitácora.")
