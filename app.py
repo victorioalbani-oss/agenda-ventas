@@ -849,41 +849,49 @@ elif opcion == "Bitácora":
                     (df_mostrar["Fecha_DT"].dt.date <= f_fin)
                 ]
                                   
-            # --- VISUALIZACIÓN AGRUPADA (NUEVA LÓGICA) ---
+            # --- VISUALIZACIÓN AGRUPADA (DISEÑO PREMIUM) ---
             if not df_mostrar.empty:
-                # 1. Creamos columnas auxiliares para agrupar
+                # 1. Preparación de datos temporales
                 df_mostrar['Año'] = df_mostrar['Fecha_DT'].dt.year
                 df_mostrar['Mes_Num'] = df_mostrar['Fecha_DT'].dt.month
-                df_mostrar['Día_Nombre'] = df_mostrar['Fecha_DT'].dt.strftime('%A') # Nombre del día
+                df_mostrar['Día_Nombre'] = df_mostrar['Fecha_DT'].dt.strftime('%A')
                 df_mostrar['Día_Num'] = df_mostrar['Fecha_DT'].dt.day
 
-                # Diccionario para traducir días (opcional pero queda prolijo)
                 dias_es = {"Monday":"Lunes", "Tuesday":"Martes", "Wednesday":"Miércoles", 
                            "Thursday":"Jueves", "Friday":"Viernes", "Saturday":"Sábado", "Sunday":"Domingo"}
 
-                # 2. Empezamos a recorrer por Mes/Año
+                # 2. Iteración por Mes
                 for (anio, mes_n), grupo_mes in df_mostrar.groupby(['Año', 'Mes_Num'], sort=False):
                     nombre_mes = dic_meses.get(mes_n, "S/D")
-                    st.markdown(f"### 📅 {nombre_mes} {anio}") # TÍTULO DEL MES
-                    st.write("---")
-
-                    # 3. Recorremos por Día dentro de ese mes
+                    st.markdown(f"## 📅 {nombre_mes} {anio}")
+                    
+                    # 3. Iteración por Día
                     for dia_n, grupo_dia in grupo_mes.groupby('Día_Num', sort=False):
                         dia_txt = dias_es.get(grupo_dia['Día_Nombre'].iloc[0], grupo_dia['Día_Nombre'].iloc[0])
                         
-                        # Subtítulo del Día (con estilo de badge)
-                        st.markdown(f"📍 **{dia_txt} {dia_n}**")
+                        # Encabezado de día con separador
+                        st.write(f"#### 📍 {dia_txt} {dia_n}")
                         
-                        # 4. Mostramos las gestiones de ese día
+                        # 4. Bloque de gestiones del día
                         for i, fila in grupo_dia.iterrows():
                             empresa_str = fila['Empresa']
-                            # Un mini expander para no ocupar tanto espacio vertical
-                            with st.expander(f"🏢 {empresa_str} | {fila['Gestion'][:40]}..."):
-                                st.write(f"**Detalle:** {fila['Gestion']}")
-                                if fila['Recordatorio'] not in ["Sin aviso", "Realizado"]:
-                                    st.caption(f"🔔 Recordatorio para el: {fila['Recordatorio']}")
+                            tiene_aviso = fila['Recordatorio'] not in ["Sin aviso", "Realizado"]
+                            icono_aviso = "🔔" if tiene_aviso else "✅"
+                            
+                            # Título del expander más descriptivo
+                            with st.expander(f"{icono_aviso} **{empresa_str}**"):
+                                # Usamos columnas para que la info interna se vea limpia
+                                c_det1, c_det2 = st.columns([0.7, 0.3])
+                                with c_det1:
+                                    st.markdown(f"**Gestión:**")
+                                    st.write(fila['Gestion'])
+                                with c_det2:
+                                    if tiene_aviso:
+                                        st.warning(f"**Recordatorio:**\n{fila['Recordatorio']}")
+                                    else:
+                                        st.success("Sin pendientes")
                         
-                        st.write("") # Espacio entre días
+                        st.markdown("---") # Línea sutil entre días
             else:
                 st.warning("No hay registros para los filtros seleccionados.")
                         
