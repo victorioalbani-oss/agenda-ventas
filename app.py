@@ -200,7 +200,7 @@ if opcion == "Productos":
                 n_prod = st.text_input("Producto (Nombre / Código)")
             with c_a2:
                 # CAMBIO: Ahora escribís vos la categoría
-                cat_prod = st.text_input("Categoría (Ej: Bolsas, Rollos, etc.)")
+                cat_prod = st.text_input("Categoría")
             
             desc_prod = st.text_area("Producto / Descripción")
             
@@ -281,6 +281,7 @@ if opcion == "Productos":
                     sincronizar("productos", st.session_state.db_productos)
                     st.warning("Producto eliminado.")
                     st.rerun()
+                    
 # --- MÓDULO CONTACTOS ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
