@@ -246,41 +246,62 @@ if opcion == "Productos":
 
     with tab_p3:
         if st.session_state.db_productos:
-            # Lista para el selector
-            opciones_edit = [f"{p.get('N°', 'S/N')} | {p.get('Producto', 'S/D')}" for p in st.session_state.db_productos]
-            seleccion = st.selectbox("Seleccioná para EDITAR o ELIMINAR:", opciones_edit)
+            st.subheader("🔍 Editar o Eliminar Artículo")
             
-            # Buscamos el índice real comparando el N°
-            id_sel = seleccion.split(" | ")[0]
-            idx = next((i for i, p in enumerate(st.session_state.db_productos) if str(p.get('N°')) == id_sel), None)
-
-            if idx is not None:
-                p_act = st.session_state.db_productos[idx]
+            # 1. Selector limpio
+            nombres_busqueda = [f"{p.get('Producto', 'S/D')} ({p.get('N°', 'S/N')})" for p in st.session_state.db_productos]
+            prod_sel_txt = st.selectbox("Seleccioná el artículo:", nombres_busqueda, key="selector_eliminar")
+            
+            # 2. Encontrar el índice comparando el string exacto
+            idx_p = next((i for i, p in enumerate(st.session_state.db_productos) 
+                          if f"{p.get('Producto', 'S/D')} ({p.get('N°', 'S/N')})" == prod_sel_txt), None)
+            
+            if idx_p is not None:
+                p_act = st.session_state.db_productos[idx_p]
                 
-                with st.form("form_edit_final"):
-                    e_nom = st.text_input("Producto", value=p_act.get('Producto', ''))
-                    e_cat = st.text_input("Categoría", value=p_act.get('Categoría', ''))
-                    e_desc = st.text_area("Descripción", value=p_act.get('Producto / Descripción', ''))
-                    e_usd = st.number_input("USD Base", value=float(p_act.get('USD', 0.0)), format="%.4f")
-                    e_por = st.number_input("Porcentaje", value=float(p_act.get('Porcentaje', 0.0)))
+                # --- FORMULARIO DE EDICIÓN ---
+                with st.form("form_edit_definitivo"):
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        nuevo_nom = st.text_input("Producto", value=p_act.get('Producto', ''))
+                        nueva_cat = st.text_input("Categoría", value=p_act.get('Categoría', ''))
+                        nuevo_usd = st.number_input("USD Base", value=float(p_act.get('USD', 0.0)), format="%.4f")
+                    with col_e2:
+                        nuevo_gram = st.text_input("Gramaje", value=p_act.get('Gramaje', ''))
+                        nueva_pres = st.text_input("Presentación", value=p_act.get('Presentación', ''))
+                        nuevo_porc = st.number_input("Porcentaje", value=float(p_act.get('Porcentaje', 0.0)))
+                    
+                    nueva_desc = st.text_area("Descripción", value=p_act.get('Producto / Descripción', ''))
                     
                     if st.form_submit_button("💾 Guardar Cambios"):
-                        n_p = e_usd * (1 + (e_por / 100))
-                        st.session_state.db_productos[idx].update({
-                            "Producto": e_nom, "Categoría": e_cat, "Producto / Descripción": e_desc,
-                            "USD": e_usd, "Porcentaje": e_por, "Nuevo Precio USD": round(n_p, 4)
+                        # Recalcular precio
+                        n_precio = nuevo_usd * (1 + (nuevo_porc / 100))
+                        st.session_state.db_productos[idx_p].update({
+                            "Producto": nuevo_nom,
+                            "Categoría": nueva_cat,
+                            "USD": nuevo_usd,
+                            "Gramaje": nuevo_gram,
+                            "Presentación": nueva_pres,
+                            "Porcentaje": nuevo_porc,
+                            "Producto / Descripción": nueva_desc,
+                            "Nuevo Precio USD": round(n_precio, 4)
                         })
                         sincronizar("productos", st.session_state.db_productos)
-                        st.success("Actualizado")
+                        st.success("✅ Cambios guardados correctamente")
                         st.rerun()
 
+                # --- SECCIÓN DE ELIMINAR (Separada del formulario) ---
                 st.write("---")
-                # Botón de borrado corregido
-                if st.button("🗑️ ELIMINAR DEFINITIVAMENTE"):
-                    st.session_state.db_productos.pop(idx)
-                    sincronizar("productos", st.session_state.db_productos)
-                    st.warning("Producto eliminado.")
-                    st.rerun()
+                with st.expander("🗑️ ZONA DE PELIGRO: Eliminar Artículo"):
+                    st.warning(f"¿Estás seguro de que querés borrar '{p_act.get('Producto')}'? Esta acción no se puede deshacer.")
+                    # Botón con key única para que Streamlit no se confunda
+                    if st.button(f"Confirmar Eliminación de {p_act.get('Producto')}", key=f"btn_del_{idx_p}"):
+                        st.session_state.db_productos.pop(idx_p)
+                        sincronizar("productos", st.session_state.db_productos)
+                        st.success("🚀 Artículo eliminado con éxito.")
+                        st.rerun()
+        else:
+            st.info("No hay artículos para editar.")
                     
 # --- MÓDULO CONTACTOS ---
 elif opcion == "Contactos":
