@@ -187,129 +187,100 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Diseño", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas", "Google Maps"])
 
-# --- MÓDULO PRODUCTOS (VERSIÓN PRECIOS DINÁMICOS) ---
+# --- MÓDULO PRODUCTOS (VERSIÓN FINAL CON FILTROS Y CATEGORÍA LIBRE) ---
 if opcion == "Productos":
     st.header("📦 Gestión de Artículos y Precios")
     
-    # 1. Pestañas
-    tab_p1, tab_p2, tab_p3 = st.tabs(["➕ Agregar Artículo", "📋 Listado y Precios", "🔍 Editar / Eliminar"])
+    tab_p1, tab_p2, tab_p3 = st.tabs(["➕ Agregar Artículo", "📋 Listado y Filtros", "🔍 Editar / Eliminar"])
     
     with tab_p1:
-        st.info("💡 Tip: Para un **descuento**, poné el porcentaje en negativo (ej: -10). Para un **aumento**, poné el valor positivo (ej: 15).")
-        
         with st.form("form_prod_nuevo", clear_on_submit=True):
-            # Primera fila: Identificación
             c_a1, c_a2 = st.columns([0.7, 0.3])
             with c_a1:
-                n_prod = st.text_input("Producto (Nombre corto / Código)")
+                n_prod = st.text_input("Producto (Nombre / Código)")
             with c_a2:
-                cat_prod = st.selectbox("Categoría", ["Bolsas", "Rollos", "Hilo", "Otros"])
+                # CAMBIO: Ahora escribís vos la categoría
+                cat_prod = st.text_input("Categoría (Ej: Bolsas, Rollos, etc.)")
             
-            # Segunda fila: Descripción y Gramaje
-            desc_prod = st.text_area("Producto / Descripción (Detalle técnico)")
+            desc_prod = st.text_area("Producto / Descripción")
             
             c_a3, c_a4 = st.columns(2)
             with c_a3:
-                gramaje = st.text_input("Gramaje (gr/m²)")
-                presentacion = st.text_input("Presentación (Ej: Pallet 1000u)")
+                gramaje = st.text_input("Gramaje")
+                presentacion = st.text_input("Presentación")
             with c_a4:
-                precio_base = st.number_input("USD (Precio Base)", min_value=0.0, format="%.4f")
+                precio_base = st.number_input("USD (Base)", min_value=0.0, format="%.4f")
                 porcentaje = st.number_input("Porcentaje (+ o -)", value=0.0)
             
             if st.form_submit_button("🚀 Registrar Artículo"):
                 if n_prod:
-                    # CÁLCULO DEL NUEVO PRECIO
                     nuevo_precio = precio_base * (1 + (porcentaje / 100))
+                    # Usamos un ID basado en timestamp para que nunca se repita ni falle el borrado
+                    aid = datetime.now().strftime("%H%M%S")
                     
-                    aid = f"Art. {len(st.session_state.db_productos) + 1}"
                     nuevo_item = {
-                        "N°": aid,
-                        "Producto": n_prod,
-                        "Categoría": cat_prod,
-                        "Producto / Descripción": desc_prod,
-                        "Gramaje": gramaje,
-                        "USD": precio_base,
-                        "Presentación": presentacion,
-                        "Porcentaje": porcentaje,
-                        "Nuevo Precio USD": round(nuevo_precio, 4)
+                        "N°": aid, "Producto": n_prod, "Categoría": cat_prod,
+                        "Producto / Descripción": desc_prod, "Gramaje": gramaje,
+                        "USD": precio_base, "Presentación": presentacion,
+                        "Porcentaje": porcentaje, "Nuevo Precio USD": round(nuevo_precio, 4)
                     }
-                    
                     st.session_state.db_productos.append(nuevo_item)
                     sincronizar("productos", st.session_state.db_productos)
-                    st.success(f"✅ {n_prod} guardado con Precio Final: U$S {nuevo_precio:.4f}")
+                    st.success(f"✅ Guardado")
                     st.rerun()
-                else:
-                    st.error("⚠️ El nombre del producto es obligatorio.")
 
     with tab_p2:
         if st.session_state.db_productos:
             df_mostrar = pd.DataFrame(st.session_state.db_productos)
             
-            # Reordenamos columnas para que se vea igual a tu pedido
-            columnas_orden = ["N°", "Producto", "Categoría", "Producto / Descripción", "Gramaje", "USD", "Presentación", "Porcentaje", "Nuevo Precio USD"]
-            df_mostrar = df_mostrar[columnas_orden]
+            # --- FILTRO DINÁMICO ---
+            busqueda = st.text_input("🔍 Buscar por Nombre, Categoría o Descripción:")
+            if busqueda:
+                # Filtra en todas las columnas de texto a la vez
+                mask = df_mostrar.apply(lambda row: row.astype(str).str.contains(busqueda, case=False).any(), axis=1)
+                df_mostrar = df_mostrar[mask]
             
-            # Estilizamos la tabla
-            st.dataframe(df_mostrar.style.format({
-                "USD": "{:.4f}",
-                "Porcentaje": "{:+.2f}%",
-                "Nuevo Precio USD": "{:.4f}"
-            }), use_container_width=True)
+            st.dataframe(df_mostrar, use_container_width=True)
         else:
-            st.info("No hay productos cargados.")
+            st.info("No hay productos.")
 
     with tab_p3:
         if st.session_state.db_productos:
-            # Buscador para editar
-            prods_nombres = [f"{p['N°']} | {p['Producto']}" for p in st.session_state.db_productos]
-            prod_sel_txt = st.selectbox("Elegí el artículo para EDITAR:", prods_nombres)
+            # Lista para el selector
+            opciones_edit = [f"{p.get('N°', 'S/N')} | {p.get('Producto', 'S/D')}" for p in st.session_state.db_productos]
+            seleccion = st.selectbox("Seleccioná para EDITAR o ELIMINAR:", opciones_edit)
             
-            # Extraer índice
-            idx_edit = next(i for i, p in enumerate(st.session_state.db_productos) if f"{p['N°']} | {p['Producto']}" == prod_sel_txt)
-            p_old = st.session_state.db_productos[idx_edit]
-            
-            with st.form("form_edit_full"):
-                st.subheader(f"📝 Editando {p_old['N°']}")
-                
-                edit_nom = st.text_input("Producto", value=p_old['Producto'])
-                edit_cat = st.selectbox("Categoría", ["Bolsas", "Rollos", "Hilo", "Otros"], 
-                                        index=["Bolsas", "Rollos", "Hilo", "Otros"].index(p_old.get('Categoría', 'Bolsas')))
-                edit_desc = st.text_area("Producto / Descripción", value=p_old.get('Producto / Descripción', ''))
-                
-                c_e1, c_e2 = st.columns(2)
-                with c_e1:
-                    edit_gramaje = st.text_input("Gramaje", value=p_old.get('Gramaje', ''))
-                    edit_pres = st.text_input("Presentación", value=p_old.get('Presentación', ''))
-                with c_e2:
-                    edit_usd = st.number_input("USD (Base)", value=float(p_old.get('USD', 0.0)), format="%.4f")
-                    edit_porc = st.number_input("Porcentaje", value=float(p_old.get('Porcentaje', 0.0)))
-                
-                if st.form_submit_button("💾 GUARDAR CAMBIOS"):
-                    # Recalcular precio en la edición
-                    nuevo_precio_edit = edit_usd * (1 + (edit_porc / 100))
-                    
-                    st.session_state.db_productos[idx_edit] = {
-                        "N°": p_old['N°'],
-                        "Producto": edit_nom,
-                        "Categoría": edit_cat,
-                        "Producto / Descripción": edit_desc,
-                        "Gramaje": edit_gramaje,
-                        "USD": edit_usd,
-                        "Presentación": edit_pres,
-                        "Porcentaje": edit_porc,
-                        "Nuevo Precio USD": round(nuevo_precio_edit, 4)
-                    }
-                    sincronizar("productos", st.session_state.db_productos)
-                    st.success("✅ Artículo actualizado correctamente.")
-                    st.rerun()
-            
-            st.write("---")
-            if st.button("🗑️ ELIMINAR ARTÍCULO"):
-                st.session_state.db_productos.pop(idx_edit)
-                sincronizar("productos", st.session_state.db_productos)
-                st.warning("Artículo eliminado.")
-                st.rerun()
+            # Buscamos el índice real comparando el N°
+            id_sel = seleccion.split(" | ")[0]
+            idx = next((i for i, p in enumerate(st.session_state.db_productos) if str(p.get('N°')) == id_sel), None)
 
+            if idx is not None:
+                p_act = st.session_state.db_productos[idx]
+                
+                with st.form("form_edit_final"):
+                    e_nom = st.text_input("Producto", value=p_act.get('Producto', ''))
+                    e_cat = st.text_input("Categoría", value=p_act.get('Categoría', ''))
+                    e_desc = st.text_area("Descripción", value=p_act.get('Producto / Descripción', ''))
+                    e_usd = st.number_input("USD Base", value=float(p_act.get('USD', 0.0)), format="%.4f")
+                    e_por = st.number_input("Porcentaje", value=float(p_act.get('Porcentaje', 0.0)))
+                    
+                    if st.form_submit_button("💾 Guardar Cambios"):
+                        n_p = e_usd * (1 + (e_por / 100))
+                        st.session_state.db_productos[idx].update({
+                            "Producto": e_nom, "Categoría": e_cat, "Producto / Descripción": e_desc,
+                            "USD": e_usd, "Porcentaje": e_por, "Nuevo Precio USD": round(n_p, 4)
+                        })
+                        sincronizar("productos", st.session_state.db_productos)
+                        st.success("Actualizado")
+                        st.rerun()
+
+                st.write("---")
+                # Botón de borrado corregido
+                if st.button("🗑️ ELIMINAR DEFINITIVAMENTE"):
+                    st.session_state.db_productos.pop(idx)
+                    sincronizar("productos", st.session_state.db_productos)
+                    st.warning("Producto eliminado.")
+                    st.rerun()
 # --- MÓDULO CONTACTOS ---
 elif opcion == "Contactos":
     st.header("👥 Gestión de Contactos")
