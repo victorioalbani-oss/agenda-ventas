@@ -187,11 +187,11 @@ if st.sidebar.button("🔄 Recargar desde Nube"):
 
 opcion = st.sidebar.radio("Ir a:", ["Bitácora", "Diseño", "Órdenes de Compra", "Cobros", "Contactos", "Productos", "Historial Empresas", "Google Maps"])
 
-# --- MÓDULO PRODUCTOS (ESPECIFICACIONES TÉCNICAS FIJAS) ---
+# --- MÓDULO PRODUCTOS (CON NUMERACIÓN ART - X) ---
 if opcion == "Productos":
     st.header("📦 Maestro de Artículos")
     
-    # Definición de listas técnicas
+    # Definición de listas técnicas (se mantienen igual)
     list_productos = ["Telas PLANAS", "Telas TUBO", "Cinta", "Cintillas", "Multifilamentos"]
     list_categorias = [
         "Convencional Liviana", "Convencional Pesada", "Laminada", 
@@ -225,7 +225,10 @@ if opcion == "Productos":
             if st.form_submit_button("🚀 Registrar Artículo"):
                 if desc_p:
                     nuevo_p = precio_base * (1 + (porc_p / 100))
-                    aid = datetime.now().strftime("%H%M%S") # ID Único por hora
+                    
+                    # --- CAMBIO AQUÍ: Numeración secuencial ---
+                    prox_numero = len(st.session_state.db_productos) + 1
+                    aid = f"Art - {prox_numero}" 
                     
                     item = {
                         "N°": aid, "Producto": tipo_p, "Categoría": cat_p,
@@ -235,38 +238,35 @@ if opcion == "Productos":
                     }
                     st.session_state.db_productos.append(item)
                     sincronizar("productos", st.session_state.db_productos)
-                    st.success("✅ Guardado con éxito")
+                    st.success(f"✅ Guardado con éxito como {aid}")
                     st.rerun()
 
     with tab_p2:
         if st.session_state.db_productos:
             df_p = pd.DataFrame(st.session_state.db_productos)
-            
-            # Filtro por texto
-            busqueda = st.text_input("🔍 Filtrar por cualquier campo (Nombre, Categoría, etc.):")
+            busqueda = st.text_input("🔍 Filtrar por cualquier campo:")
             if busqueda:
                 mask = df_p.apply(lambda row: row.astype(str).str.contains(busqueda, case=False).any(), axis=1)
                 df_p = df_p[mask]
-            
             st.dataframe(df_p, use_container_width=True)
         else:
             st.info("No hay productos cargados.")
 
     with tab_p3:
         if st.session_state.db_productos:
-            # Selector para identificar el producto
-            opciones = [f"{p['Producto']} - {p['Producto / Descripción']} ({p['N°']})" for p in st.session_state.db_productos]
+            # Selector usando el nuevo formato Art - X
+            opciones = [f"{p['N°']} | {p['Producto']} - {p['Producto / Descripción']}" for p in st.session_state.db_productos]
             seleccion = st.selectbox("Seleccioná el producto a gestionar:", opciones)
             
-            # Buscamos índice real
-            id_buscado = seleccion.split("(")[-1].replace(")", "")
-            idx = next((i for i, p in enumerate(st.session_state.db_productos) if str(p['N°']) == id_buscado), None)
+            # Buscamos por el N° exacto (lo que está antes del '|')
+            n_buscado = seleccion.split(" | ")[0]
+            idx = next((i for i, p in enumerate(st.session_state.db_productos) if str(p['N°']) == n_buscado), None)
             
             if idx is not None:
                 p_act = st.session_state.db_productos[idx]
                 
                 with st.form("form_edicion"):
-                    st.write(f"### Editando ID: {id_buscado}")
+                    st.write(f"### Editando: {p_act['N°']}")
                     c_e1, c_e2 = st.columns(2)
                     with c_e1:
                         e_tipo = st.selectbox("Producto", list_productos, index=list_productos.index(p_act['Producto']))
@@ -289,11 +289,9 @@ if opcion == "Productos":
                         st.success("✅ Actualizado")
                         st.rerun()
                 
-                # --- BOTÓN DE ELIMINAR ---
                 st.write("---")
                 with st.expander("🗑️ ELIMINAR PRODUCTO"):
-                    st.warning("Cuidado: Esta acción borrará el producto del maestro.")
-                    if st.button(f"Confirmar eliminación de {p_act['Producto / Descripción']}"):
+                    if st.button(f"Confirmar eliminación de {p_act['N°']}"):
                         st.session_state.db_productos.pop(idx)
                         sincronizar("productos", st.session_state.db_productos)
                         st.success("🚀 Eliminado")
